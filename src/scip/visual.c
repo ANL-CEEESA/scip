@@ -91,6 +91,7 @@ SCIP_RETCODE SCIPvisualCreate(
 
    (*visual)->vbcfile = NULL;
    (*visual)->bakfile = NULL;
+   (*visual)->txtfile = NULL;
    (*visual)->messagehdlr = messagehdlr;
    (*visual)->nodenum = NULL;
    (*visual)->timestep = 0;
@@ -111,6 +112,7 @@ void SCIPvisualFree(
    assert( *visual != NULL );
    assert( (*visual)->vbcfile == NULL );
    assert( (*visual)->bakfile == NULL );
+   assert( (*visual)->txtfile == NULL );
    assert( (*visual)->nodenum == NULL );
 
    BMSfreeMemory(visual);
@@ -128,6 +130,7 @@ SCIP_RETCODE SCIPvisualInit(
    assert( set != NULL );
    assert( set->visual_vbcfilename != NULL );
    assert( set->visual_bakfilename != NULL );
+   assert( set->visual_txtfilename != NULL );
    assert( visual->nodenum == NULL );
 
    visual->lastlowerbound = -SCIPsetInfinity(set);
@@ -176,8 +179,27 @@ SCIP_RETCODE SCIPvisualInit(
       }
    }
 
+   /* check whether we should initialize text output */
+   if ( set->visual_txtfilename[0] != '-' || set->visual_txtfilename[1] != '\0' )
+   {
+      SCIPmessagePrintVerbInfo(messagehdlr, set->disp_verblevel, SCIP_VERBLEVEL_NORMAL,
+         "storing text information in file <%s>\n", set->visual_txtfilename);
+      visual->txtfile = fopen(set->visual_txtfilename, "w");
+      visual->timestep = 0;
+      visual->lastnode = NULL;
+      visual->lastcolor = SCIP_VBCCOLOR_NONE;
+      visual->userealtime = set->visual_realtime;
+
+      if ( visual->txtfile == NULL )
+      {
+         SCIPerrorMessage("error creating file <%s>\n", set->visual_txtfilename);
+         SCIPprintSysError(set->visual_txtfilename);
+         return SCIP_FILECREATEERROR;
+      }
+   }
+
    /* possibly init hashmap for nodes */
-   if ( visual->vbcfile != NULL || visual->bakfile != NULL )
+   if ( visual->vbcfile != NULL || visual->bakfile != NULL || visual->txtfile != NULL )
    {
       SCIP_CALL( SCIPhashmapCreate(&visual->nodenum, blkmem, SCIP_HASHSIZE_VBC) );
    }
@@ -209,6 +231,14 @@ void SCIPvisualExit(
 
       fclose(visual->bakfile);
       visual->bakfile = NULL;
+   }
+
+   if ( visual->txtfile != NULL )
+   {
+      SCIPmessagePrintVerbInfo(messagehdlr, set->disp_verblevel, SCIP_VERBLEVEL_FULL, "closing text information file\n");
+
+      fclose(visual->txtfile);
+      visual->txtfile = NULL;
    }
 
    if ( visual->nodenum )
@@ -286,7 +316,7 @@ SCIP_RETCODE SCIPvisualNewChild(
       return SCIP_OKAY;
 
    /* check whether output should be created */
-   if ( visual->vbcfile == NULL && visual->bakfile == NULL )
+   if ( visual->vbcfile == NULL && visual->bakfile == NULL && visual->txtfile == NULL )
       return SCIP_OKAY;
 
    /* insert mapping node -> nodenum into hash map */
@@ -356,7 +386,7 @@ SCIP_RETCODE SCIPvisualUpdateChild(
    assert( node != NULL );
 
    /* check whether output should be created */
-   if ( visual->vbcfile == NULL && visual->bakfile == NULL )
+   if ( visual->vbcfile == NULL && visual->bakfile == NULL && visual->txtfile == NULL )
       return SCIP_OKAY;
 
    /* visualization is disabled on probing nodes */
@@ -441,6 +471,76 @@ SCIP_RETCODE SCIPvisualUpdateChild(
             lowerbound, sum, nlpcands);
    }
 
+   if ( visual->txtfile != NULL )
+   {
+      int parentnodenum;
+      char t = 'M';
+      const char* varname;
+      SCIP_Real varlb;
+      SCIP_Real varub;
+
+      /* determine branching type */
+      if ( branchvar != NULL )
+         t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
+
+      /* get nodenum of parent node from hash map */
+      parentnodenum = (node->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, node->parent) : 0);
+      assert(node->parent == NULL || parentnodenum > 0);
+
+      /* update info depending on the node type */
+      switch( SCIPnodeGetType(node) )
+      {
+      case SCIP_NODETYPE_CHILD:
+         /* the child is a new candidate, do nothing */
+         /* append new status line with updated node information to the txtfile */
+         assert((int)parentnodenum > 0);
+         varname = SCIPvarGetName(branchvar);
+         /* strip 't_' from varname */
+         if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+         {
+            varname = varname + 2;
+         }
+         varlb = SCIPvarGetLbLocal(branchvar);
+         varub = SCIPvarGetUbLocal(branchvar);
+         if( branchtype == SCIP_BOUNDTYPE_LOWER )
+            varlb = branchbound;
+         else
+            varub = branchbound;
+         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g %f\n", (int)nodenum, (int)parentnodenum,
+               t, varname, varlb, varub, lowerbound);
+         break;
+      case SCIP_NODETYPE_FOCUSNODE:
+         /* the focus node is updated to a branch node */
+         /* append new status line with updated node information to the txtfile */
+         if( (int)parentnodenum == 0 )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d - - - - %f\n", (int)nodenum, (int)parentnodenum,
+                  lowerbound);
+         }
+         else
+         {
+            varname = SCIPvarGetName(branchvar);
+            /* strip 't_' from varname */
+            if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+            {
+               varname = varname + 2;
+            }
+            varlb = SCIPvarGetLbLocal(branchvar);
+            varub = SCIPvarGetUbLocal(branchvar);
+            if( branchtype == SCIP_BOUNDTYPE_LOWER )
+               varlb = branchbound;
+            else
+               varub = branchbound;
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum, (int)parentnodenum,
+                  t, varname, varlb, varub, lowerbound);
+         }
+         break;
+      default:
+         SCIPerrorMessage("Error: Unexpected node type <%d> in Update Child Method", SCIPnodeGetType(node));
+         return SCIP_INVALIDDATA;
+      } /*lint !e788*/
+   }
+
    return SCIP_OKAY;
 }
 
@@ -488,7 +588,7 @@ void SCIPvisualSolvedNode(
    assert( node != NULL );
 
    /* check whether output should be created */
-   if ( visual->vbcfile == NULL && visual->bakfile == NULL )
+   if ( visual->vbcfile == NULL && visual->bakfile == NULL && visual->txtfile == NULL )
       return;
 
    /* visualization is disabled on probing nodes */
@@ -549,7 +649,7 @@ void SCIPvisualCutoffNode(
    assert( node != NULL );
 
    /* check whether output should be created */
-   if ( visual->vbcfile == NULL && visual->bakfile == NULL )
+   if ( visual->vbcfile == NULL && visual->bakfile == NULL && visual->txtfile == NULL )
       return;
 
    /* visualization is disabled on probing nodes */
@@ -605,6 +705,43 @@ void SCIPvisualCutoffNode(
          SCIPmessageFPrintInfo(visual->messagehdlr, visual->bakfile, "infeasible %d %d %c\n", nodenum, parentnodenum, t);
       else
          SCIPmessageFPrintInfo(visual->messagehdlr, visual->bakfile, "fathomed %d %d %c\n", nodenum, parentnodenum, t);
+   }
+
+   if ( visual->txtfile != NULL )
+   {
+      int parentnodenum;
+      char t = 'M';
+      const char* varname;
+      SCIP_Real varlb;
+      SCIP_Real varub;
+
+      /* determine branching type */
+      if ( branchvar != NULL )
+         t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
+
+      /* get nodenum of parent node from hash map */
+      parentnodenum = (node->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, node->parent) : 0);
+      assert(node->parent == NULL || parentnodenum > 0);
+
+      if ( infeasible )
+      {
+         varname = SCIPvarGetName(branchvar);
+         /* strip 't_' from varname */
+         if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+         {
+            varname = varname + 2;
+         }
+         varlb = SCIPvarGetLbLocal(branchvar);
+         varub = SCIPvarGetUbLocal(branchvar);
+         if( branchtype == SCIP_BOUNDTYPE_LOWER )
+            varlb = branchbound;
+         else
+            varub = branchbound;
+         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "%d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
+               varname, varlb, varub);
+      }
+      else
+         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c\n", nodenum, parentnodenum, t);
    }
 }
 
@@ -760,6 +897,59 @@ void SCIPvisualFoundSolution(
       {
          printTime(visual, stat, FALSE);
          SCIPmessageFPrintInfo(visual->messagehdlr, visual->bakfile, "heuristic %f\n", obj);
+      }
+   }
+
+   if( visual->txtfile != NULL && bettersol )
+   {
+      SCIP_Real obj;
+
+      if( set->visual_objextern )
+         obj = SCIPgetSolOrigObj(set->scip, sol);
+      else
+         obj = SCIPgetSolTransObj(set->scip, sol);
+
+      if( SCIPsolGetHeur(sol) == NULL )
+      {
+         /* if LP solution was feasible ... */
+         SCIP_VAR* branchvar;
+         SCIP_BOUNDTYPE branchtype;
+         SCIP_Real branchbound;
+         SCIP_NODE *pnode;
+         int parentnodenum;
+         int nodenum;
+         char t = 'M';
+
+         /* find first parent that is not a probing node */
+         assert(node != NULL);
+         pnode = node;
+         while( pnode != NULL && SCIPnodeGetType(pnode) == SCIP_NODETYPE_PROBINGNODE )
+            pnode = pnode->parent;
+
+         if( pnode != NULL )
+         {
+            /* get node num from hash map */
+            nodenum = SCIPhashmapGetImageInt(visual->nodenum, pnode);
+
+            /* get nodenum of parent node from hash map */
+            parentnodenum = (pnode->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, pnode->parent) : 0);
+            assert(pnode->parent == NULL || parentnodenum > 0);
+
+            /* get branching information */
+            getBranchInfo(pnode, &branchvar, &branchtype, &branchbound);
+
+            /* determine branching type */
+            if( branchvar != NULL )
+               t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
+
+            printTime(visual, stat, FALSE);
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "integer %d %d %c %f\n", nodenum, parentnodenum, t, obj);
+         }
+      }  /*lint !e438*/
+      else
+      {
+         printTime(visual, stat, FALSE);
+         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "heuristic %f\n", obj);
       }
    }
 }

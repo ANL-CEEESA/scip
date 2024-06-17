@@ -50,6 +50,7 @@ struct SCIP_Visual
 {
    FILE*                 vbcfile;            /**< file to store VBC information */
    FILE*                 bakfile;            /**< file to store BAK information */
+   FILE*                 txtfile;            /**< file to store text format information */
    SCIP_MESSAGEHDLR*     messagehdlr;        /**< message handler to use */
    SCIP_HASHMAP*         nodenum;            /**< hash map for mapping nodes to node numbers */
    SCIP_Longint          timestep;           /**< time step counter for non real time output */

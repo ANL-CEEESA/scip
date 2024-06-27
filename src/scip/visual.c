@@ -539,8 +539,19 @@ SCIP_RETCODE SCIPvisualUpdateChild(
                varlb = branchbound;
             else
                varub = branchbound;
-            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum, (int)parentnodenum,
-                  t, varname, varlb, varub, lowerbound);
+            /* do not print non-root node related "branched" info */
+            /*
+            if( !SCIPsetIsInfinity(set, lowerbound) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+            }
+            else
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g infinity\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub);
+            }
+            */
          }
          break;
       default:

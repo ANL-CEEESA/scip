@@ -756,11 +756,17 @@ void SCIPvisualCutoffNode(
             varlb = branchbound;
          else
             varub = branchbound;
-         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "%d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
+         /* do not print "infeasible" node info because they are being printed after lower bound updates in vanilla full
+          * strong branching */
+         /*
+         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
                varname, varlb, varub);
+         */
       }
       else
-         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c\n", nodenum, parentnodenum, t);
+      {
+         /* node is fathomed, do nothing */
+      }
    }
 }
 

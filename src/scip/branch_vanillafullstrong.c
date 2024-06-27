@@ -48,6 +48,10 @@
 #include "scip/scip_solvingstats.h"
 #include "scip/scip_tree.h"
 #include "scip/scip_var.h"
+#include "scip/struct_scip.h"
+#include "scip/struct_set.h"
+#include "scip/struct_stat.h"
+#include "scip/visual.h"
 #include <string.h>
 
 
@@ -481,16 +485,19 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
          {
             SCIP_CALL( SCIPupdateNodeLowerbound(scip, downchild, bestdownvalid ? MAX(bestdown, provedbound) : provedbound) );
             SCIPdebugMsg(scip, " -> down child's lowerbound: %g\n", SCIPnodeGetLowerbound(downchild));
+            SCIP_CALL( SCIPvisualUpdateChild(scip->stat->visual, scip->set, scip->stat, downchild) );
          }
          if( eqchild != NULL )
          {
             SCIP_CALL( SCIPupdateNodeLowerbound(scip, eqchild, provedbound) );
             SCIPdebugMsg(scip, " -> eq child's lowerbound:   %g\n", SCIPnodeGetLowerbound(eqchild));
+            SCIP_CALL( SCIPvisualUpdateChild(scip->stat->visual, scip->set, scip->stat, eqchild) );
          }
          if( upchild != NULL )
          {
             SCIP_CALL( SCIPupdateNodeLowerbound(scip, upchild, bestupvalid ? MAX(bestup, provedbound) : provedbound) );
             SCIPdebugMsg(scip, " -> up child's lowerbound:   %g\n", SCIPnodeGetLowerbound(upchild));
+            SCIP_CALL( SCIPvisualUpdateChild(scip->stat->visual, scip->set, scip->stat, upchild) );
          }
       }
 

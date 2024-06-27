@@ -5750,7 +5750,10 @@ SCIP_RETCODE SCIPtreeBranchVar(
       SCIP_CALL( SCIPnodeAddBoundchg(node, blkmem, set, stat, transprob, origprob, tree, reopt, lp, branchcand, eventqueue,
             NULL, var, downub, SCIP_BOUNDTYPE_UPPER, FALSE) );
       /* output branching bound change to visualization file */
+      /* SB: @note disabled for the purpose of the project related to compressing trees */
+      /*
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
+      */
 
       if( downchild != NULL )
          *downchild = node;
@@ -5775,7 +5778,10 @@ SCIP_RETCODE SCIPtreeBranchVar(
                NULL, var, fixval, SCIP_BOUNDTYPE_UPPER, FALSE) );
       }
       /* output branching bound change to visualization file */
+      /* SB: @note disabled for the purpose of the project related to compressing trees */
+      /*
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
+      */
 
       if( eqchild != NULL )
          *eqchild = node;
@@ -5795,7 +5801,10 @@ SCIP_RETCODE SCIPtreeBranchVar(
       SCIP_CALL( SCIPnodeAddBoundchg(node, blkmem, set, stat, transprob, origprob, tree, reopt, lp, branchcand, eventqueue,
             NULL, var, uplb, SCIP_BOUNDTYPE_LOWER, FALSE) );
       /* output branching bound change to visualization file */
+      /* SB: @note disabled for the purpose of the project related to compressing trees */
+      /*
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
+      */
 
       if( upchild != NULL )
          *upchild = node;

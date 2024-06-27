@@ -471,7 +471,11 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
       allcolsinlp = SCIPallColsInLP(scip);
 
       /* update the lower bounds in the children */
+      /* idempotent requirement has been removed for the purpose of compressing trees project */
+      /*
       if( !branchruledata->idempotent && allcolsinlp && !exactsolve )
+      */
+      if( allcolsinlp && !exactsolve )
       {
          if( downchild != NULL )
          {

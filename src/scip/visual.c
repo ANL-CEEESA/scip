@@ -506,8 +506,16 @@ SCIP_RETCODE SCIPvisualUpdateChild(
             varlb = branchbound;
          else
             varub = branchbound;
-         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g %f\n", (int)nodenum, (int)parentnodenum,
-               t, varname, varlb, varub, lowerbound);
+         if( !SCIPsetIsInfinity(set, lowerbound) )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g %f\n",
+                  (int)nodenum, (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+         }
+         else
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g infinity\n",
+                  (int)nodenum, (int)parentnodenum, t, varname, varlb, varub);
+         }
          break;
       case SCIP_NODETYPE_FOCUSNODE:
          /* the focus node is updated to a branch node */

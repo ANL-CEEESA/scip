@@ -1,0 +1,180 @@
+# priority of branching rule <vanillafullstrong>
+# [type: int, advanced: FALSE, range: [-536870912,536870911], default: -2000]
+branching/vanillafullstrong/priority = 10000000
+
+# should integral variables in the current LP solution be considered as branching candidates ?
+# [type: bool, advanced: FALSE, default: False]
+branching/vanillafullstrong/integralcands = FALSE
+
+# should strong branching side-effects be prevented (e.g., domain changes, stat updates etc.) ?
+# [type: bool, advanced: FALSE, default: False]
+branching/vanillafullstrong/idempotent = TRUE
+
+# should strong branching scores be computed for all candidates, or can we early stop when a variable has infinite score ?
+# [type: bool, advanced: TRUE, default: False]
+branching/vanillafullstrong/scoreall = TRUE
+
+# should strong branching scores be collected ?
+# [type: bool, advanced: TRUE, default: False]
+branching/vanillafullstrong/collectscores = FALSE
+
+limits/nodes = 1000
+
+visual/displb = TRUE
+#visual/vbcfilename = "blend2.vbc"
+#visual/bakfilename = "blend2.bak"
+visual/txtfilename = "blend2.txt"
+
+conflict/enable = FALSE
+
+heuristics/adaptivediving/freq = -1
+heuristics/clique/freq = -1
+heuristics/completesol/freq = -1
+heuristics/conflictdiving/freq = -1
+heuristics/crossover/freq = -1
+heuristics/distributiondiving/freq = -1
+heuristics/farkasdiving/freq = -1
+heuristics/feaspump/freq = -1
+heuristics/fracdiving/freq = -1
+heuristics/gins/freq = -1
+heuristics/guideddiving/freq = -1
+heuristics/indicator/freq = -1
+heuristics/indicatordiving/freq = -1
+heuristics/intshifting/freq = -1
+heuristics/linesearchdiving/freq = -1
+heuristics/locks/freq = -1
+heuristics/lpface/freq = -1
+heuristics/alns/freq = -1
+heuristics/nlpdiving/freq = -1
+heuristics/multistart/freq = -1
+heuristics/mpec/freq = -1
+heuristics/objpscostdiving/freq = -1
+heuristics/ofins/freq = -1
+heuristics/oneopt/freq = -1
+heuristics/padm/freq = -1
+heuristics/pscostdiving/freq = -1
+heuristics/randrounding/freq = -1
+heuristics/rens/freq = -1
+heuristics/reoptsols/freq = -1
+heuristics/rins/freq = -1
+heuristics/rootsoldiving/freq = -1
+heuristics/rounding/freq = -1
+heuristics/shiftandpropagate/freq = -1
+heuristics/shifting/freq = -1
+heuristics/simplerounding/freq = -1
+heuristics/subnlp/freq = -1
+heuristics/trivial/freq = -1
+heuristics/trivialnegation/freq = -1
+heuristics/trysol/freq = -1
+heuristics/undercover/freq = -1
+heuristics/vbounds/freq = -1
+heuristics/veclendiving/freq = -1
+heuristics/zirounding/freq = -1
+
+nlp/disable = TRUE
+
+nodeselection/bfs/stdpriority = 100000000
+
+presolving/milp/maxrounds = 0
+presolving/trivial/maxrounds = 0
+presolving/inttobinary/maxrounds = 0
+presolving/gateextraction/maxrounds = 0
+presolving/dualcomp/maxrounds = 0
+presolving/domcol/maxrounds = 0
+presolving/implics/maxrounds = 0
+presolving/sparsify/maxrounds = 0
+presolving/dualsparsify/maxrounds = 0
+propagating/dualfix/maxprerounds = 0
+propagating/genvbounds/maxprerounds = 0
+propagating/obbt/maxprerounds = 0
+propagating/nlobbt/maxprerounds = 0
+propagating/probing/maxprerounds = 0
+propagating/pseudoobj/maxprerounds = 0
+propagating/redcost/maxprerounds = 0
+propagating/rootredcost/maxprerounds = 0
+propagating/symmetry/maxprerounds = 0
+propagating/vbounds/maxprerounds = 0
+constraints/cardinality/maxprerounds = 0
+constraints/SOS1/maxprerounds = 0
+constraints/SOS2/maxprerounds = 0
+constraints/varbound/maxprerounds = 0
+constraints/knapsack/maxprerounds = 0
+constraints/setppc/maxprerounds = 0
+constraints/linking/maxprerounds = 0
+constraints/or/maxprerounds = 0
+constraints/and/maxprerounds = 0
+constraints/xor/maxprerounds = 0
+constraints/conjunction/maxprerounds = 0
+constraints/disjunction/maxprerounds = 0
+constraints/linear/maxprerounds = 0
+constraints/orbisack/maxprerounds = 0
+constraints/orbitope/maxprerounds = 0
+constraints/symresack/maxprerounds = 0
+constraints/logicor/maxprerounds = 0
+constraints/bounddisjunction/maxprerounds = 0
+constraints/cumulative/maxprerounds = 0
+constraints/nonlinear/maxprerounds = 0
+constraints/pseudoboolean/maxprerounds = 0
+constraints/superindicator/maxprerounds = 0
+constraints/indicator/maxprerounds = 0
+constraints/components/maxprerounds = 0
+presolving/maxrestarts = 0
+presolving/maxrounds = 0
+
+# ok??
+pricing/maxvars = 1
+pricing/maxvarsroot = 1
+
+propagating/maxrounds = 0
+propagating/maxroundsroot = 0
+propagating/dualfix/freq = -1
+propagating/genvbounds/freq = -1
+propagating/nlobbt/freq = -1
+propagating/obbt/freq = -1
+propagating/probing/freq = -1
+propagating/pseudoobj/freq = -1
+propagating/redcost/freq = -1
+propagating/rootredcost/freq = -1
+propagating/symmetry/freq = -1
+propagating/vbounds/freq = -1
+
+# note: lagromory missing: it looks like only the ones which are not -1 to begin
+# with are displayed here. Be wary of this in the future!
+separating/disjunctive/freq = -1
+separating/rlt/freq = -1
+separating/minor/freq = -1
+separating/mixing/freq = -1
+separating/impliedbounds/freq = -1
+separating/gomory/freq = -1
+separating/aggregation/freq = -1
+separating/clique/freq = -1
+separating/zerohalf/freq = -1
+separating/mcf/freq = -1
+separating/flowcover/freq = -1
+separating/strongcg/freq = -1
+separating/gomorymi/freq = -1
+separating/cmir/freq = -1
+separating/knapsackcover/freq = -1
+separating/rapidlearning/freq = -1
+constraints/cardinality/sepafreq = -1
+constraints/SOS1/sepafreq = -1
+constraints/SOS2/sepafreq = -1
+constraints/varbound/sepafreq = -1
+constraints/knapsack/sepafreq = -1
+constraints/setppc/sepafreq = -1
+constraints/linking/sepafreq = -1
+constraints/or/sepafreq = -1
+constraints/and/sepafreq = -1
+constraints/xor/sepafreq = -1
+constraints/linear/sepafreq = -1
+constraints/orbisack/sepafreq = -1
+constraints/symresack/sepafreq = -1
+constraints/logicor/sepafreq = -1
+constraints/cumulative/sepafreq = -1
+constraints/nonlinear/sepafreq = -1
+constraints/indicator/sepafreq = -1
+
+misc/allowstrongdualreds = FALSE
+misc/allowweakdualreds = FALSE
+misc/scaleobj = FALSE
+misc/usesymmetry = 0

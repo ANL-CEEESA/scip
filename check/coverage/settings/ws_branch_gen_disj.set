@@ -1,3 +1,8 @@
+visual/txtfilename = "blend2.txt"
+visual/displb = TRUE
+
+limits/nodes = 10000
+
 # priority of branching rule <vanillafullstrong>
 # [type: int, advanced: FALSE, range: [-536870912,536870911], default: -2000]
 branching/vanillafullstrong/priority = 10000000
@@ -17,13 +22,6 @@ branching/vanillafullstrong/scoreall = TRUE
 # should strong branching scores be collected ?
 # [type: bool, advanced: TRUE, default: False]
 branching/vanillafullstrong/collectscores = FALSE
-
-limits/nodes = 1000
-
-visual/displb = TRUE
-#visual/vbcfilename = "blend2.vbc"
-#visual/bakfilename = "blend2.bak"
-visual/txtfilename = "blend2.txt"
 
 conflict/enable = FALSE
 

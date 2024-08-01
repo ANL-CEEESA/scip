@@ -540,7 +540,6 @@ SCIP_RETCODE SCIPvisualUpdateChild(
             else
                varub = branchbound;
             /* do not print non-root node related "branched" info */
-            /*
             if( !SCIPsetIsInfinity(set, lowerbound) )
             {
                SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum,
@@ -551,7 +550,6 @@ SCIP_RETCODE SCIPvisualUpdateChild(
                SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g infinity\n", (int)nodenum,
                      (int)parentnodenum, t, varname, varlb, varub);
             }
-            */
          }
          break;
       default:
@@ -758,10 +756,8 @@ void SCIPvisualCutoffNode(
             varub = branchbound;
          /* do not print "infeasible" node info because they are being printed after lower bound updates in vanilla full
           * strong branching */
-         /*
          SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
                varname, varlb, varub);
-         */
       }
       else
       {

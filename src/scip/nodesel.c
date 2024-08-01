@@ -191,7 +191,7 @@ SCIP_RETCODE SCIPnodepqClear(
          assert(nodepq->slots[i] != NULL);
          assert(SCIPnodeGetType(nodepq->slots[i]) == SCIP_NODETYPE_LEAF);
 
-         SCIP_CALL( SCIPnodeFree(&nodepq->slots[i], blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&nodepq->slots[i], -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       }
    }
 
@@ -698,7 +698,7 @@ SCIP_RETCODE SCIPnodepqBound(
          }
 
          /* free memory of the node */
-         SCIP_CALL( SCIPnodeFree(&node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       }
       else
          pos--;

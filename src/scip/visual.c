@@ -539,7 +539,6 @@ SCIP_RETCODE SCIPvisualUpdateChild(
                varlb = branchbound;
             else
                varub = branchbound;
-            /* do not print non-root node related "branched" info */
             if( !SCIPsetIsInfinity(set, lowerbound) )
             {
                SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum,
@@ -740,26 +739,37 @@ void SCIPvisualCutoffNode(
       parentnodenum = (node->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, node->parent) : 0);
       assert(node->parent == NULL || parentnodenum > 0);
 
+      varname = SCIPvarGetName(branchvar);
+      /* strip 't_' from varname */
+      if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+      {
+         varname = varname + 2;
+      }
+      varlb = SCIPvarGetLbLocal(branchvar);
+      varub = SCIPvarGetUbLocal(branchvar);
+      if( branchtype == SCIP_BOUNDTYPE_LOWER )
+         varlb = branchbound;
+      else
+         varub = branchbound;
+
       if ( infeasible )
       {
-         varname = SCIPvarGetName(branchvar);
-         /* strip 't_' from varname */
-         if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
-         {
-            varname = varname + 2;
-         }
-         varlb = SCIPvarGetLbLocal(branchvar);
-         varub = SCIPvarGetUbLocal(branchvar);
-         if( branchtype == SCIP_BOUNDTYPE_LOWER )
-            varlb = branchbound;
-         else
-            varub = branchbound;
          SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
                varname, varlb, varub);
       }
       else
       {
-         /* node is fathomed, do nothing */
+         /* node is fathomed */
+         if( !SCIPsetIsInfinity(set, lowerbound) )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g %f\n", (int)nodenum,
+                  (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+         }
+         else
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g infinity\n", (int)nodenum,
+                  (int)parentnodenum, t, varname, varlb, varub);
+         }
       }
    }
 }

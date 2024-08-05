@@ -48,10 +48,6 @@
 #include "scip/scip_solvingstats.h"
 #include "scip/scip_tree.h"
 #include "scip/scip_var.h"
-#include "scip/struct_scip.h"
-#include "scip/struct_set.h"
-#include "scip/struct_stat.h"
-#include "scip/visual.h"
 #include <string.h>
 
 

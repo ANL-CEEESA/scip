@@ -1,8 +1,6 @@
 visual/txtfilename = "blend2.txt"
 visual/displb = TRUE
 
-limits/nodes = 10000
-
 # priority of branching rule <vanillafullstrong>
 # [type: int, advanced: FALSE, range: [-536870912,536870911], default: -2000]
 branching/vanillafullstrong/priority = 10000000

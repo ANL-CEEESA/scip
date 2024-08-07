@@ -731,44 +731,68 @@ void SCIPvisualCutoffNode(
       SCIP_Real varlb;
       SCIP_Real varub;
 
-      /* determine branching type */
-      if ( branchvar != NULL )
-         t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
-
       /* get nodenum of parent node from hash map */
       parentnodenum = (node->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, node->parent) : 0);
       assert(node->parent == NULL || parentnodenum > 0);
 
-      varname = SCIPvarGetName(branchvar);
-      /* strip 't_' from varname */
-      if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+      /* determine branching type */
+      if ( branchvar != NULL )
       {
-         varname = varname + 2;
-      }
-      varlb = SCIPvarGetLbLocal(branchvar);
-      varub = SCIPvarGetUbLocal(branchvar);
-      if( branchtype == SCIP_BOUNDTYPE_LOWER )
-         varlb = branchbound;
-      else
-         varub = branchbound;
+         t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
 
-      if ( infeasible )
-      {
-         SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
-               varname, varlb, varub);
-      }
-      else
-      {
-         /* node is fathomed */
-         if( !SCIPsetIsInfinity(set, lowerbound) )
+         varname = SCIPvarGetName(branchvar);
+         /* strip 't_' from varname */
+         if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
          {
-            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g %f\n", (int)nodenum,
-                  (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+            varname = varname + 2;
+         }
+         varlb = SCIPvarGetLbLocal(branchvar);
+         varub = SCIPvarGetUbLocal(branchvar);
+         if( branchtype == SCIP_BOUNDTYPE_LOWER )
+            varlb = branchbound;
+         else
+            varub = branchbound;
+
+         if ( infeasible )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
+                  varname, varlb, varub);
          }
          else
          {
-            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g infinity\n", (int)nodenum,
-                  (int)parentnodenum, t, varname, varlb, varub);
+            /* node is fathomed */
+            if( !SCIPsetIsInfinity(set, lowerbound) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g %f\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+            }
+            else
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g infinity\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub);
+            }
+         }
+      }
+      else
+      {
+         if ( infeasible )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d - - - - infinity\n",
+                  (int)nodenum, (int)parentnodenum);
+         }
+         else
+         {
+            /* node is fathomed */
+            if( !SCIPsetIsInfinity(set, lowerbound) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - %f\n", (int)nodenum,
+                     (int)parentnodenum, lowerbound);
+            }
+            else
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - infinity\n",
+                     (int)nodenum, (int)parentnodenum);
+            }
          }
       }
    }

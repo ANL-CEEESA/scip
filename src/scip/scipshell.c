@@ -64,7 +64,8 @@ SCIP_RETCODE readParams(
 static
 SCIP_RETCODE fromCommandLine(
    SCIP*                 scip,               /**< SCIP data structure */
-   const char*           filename            /**< input file name */
+   const char*           filename,           /**< input file name */
+   const char*           soluname            /**< input solution file name */
    )
 {
    SCIP_RETCODE retcode;
@@ -98,6 +99,38 @@ SCIP_RETCODE fromCommandLine(
    default:
       SCIP_CALL( retcode );
    } /*lint !e788*/
+
+   if( soluname != NULL )
+   {
+      /********************
+       * Read Solution *
+       ********************/
+
+      /** @note The message handler should be only fed line by line such the message has the chance to add string in front
+       *        of each message
+       */
+      SCIPinfoMessage(scip, NULL, "\n");
+      SCIPinfoMessage(scip, NULL, "read solution <%s>\n", soluname);
+      SCIPinfoMessage(scip, NULL, "============\n");
+      SCIPinfoMessage(scip, NULL, "\n");
+
+      retcode = SCIPreadProb(scip, soluname, NULL);
+
+      switch( retcode )
+      {
+         case SCIP_NOFILE:
+            SCIPinfoMessage(scip, NULL, "file <%s> not found\n", soluname);
+            return SCIP_OKAY;
+         case SCIP_PLUGINNOTFOUND:
+            SCIPinfoMessage(scip, NULL, "no reader for input file <%s> available\n", soluname);
+            return SCIP_OKAY;
+         case SCIP_READERROR:
+            SCIPinfoMessage(scip, NULL, "error reading file <%s>\n", soluname);
+            return SCIP_OKAY;
+         default:
+            SCIP_CALL( retcode );
+      } /*lint !e788*/
+   }
 
    /*******************
     * Problem Solving *
@@ -279,6 +312,7 @@ SCIP_RETCODE SCIPprocessShellArguments(
 {  /*lint --e{850}*/
    char* probname = NULL;
    char* settingsname = NULL;
+   char* soluname = NULL;
    char* logname = NULL;
    int randomseed;
    SCIP_Bool randomseedread;
@@ -354,6 +388,17 @@ SCIP_RETCODE SCIPprocessShellArguments(
          else
          {
             printf("missing problem filename after parameter '-f'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "-x") == 0 )
+      {
+         i++;
+         if( i < argc )
+            soluname = argv[i];
+         else
+         {
+            printf("missing solution filename after parameter '-x'\n");
             paramerror = TRUE;
          }
       }
@@ -524,7 +569,7 @@ SCIP_RETCODE SCIPprocessShellArguments(
             else
                validatesolve = TRUE;
          }
-         SCIP_CALL( fromCommandLine(scip, probname) );
+         SCIP_CALL( fromCommandLine(scip, probname, soluname) );
 
          /* validate the solve */
          if( validatesolve )

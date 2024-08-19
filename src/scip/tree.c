@@ -847,7 +847,6 @@ SCIP_RETCODE nodeAssignParent(
 static
 SCIP_RETCODE nodeReleaseParent(
    SCIP_NODE*            node,               /**< child node */
-   int                   focusnodedepth,     /**< focus node's depth */
    BMS_BLKMEM*           blkmem,             /**< block memory buffer */
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_STAT*            stat,               /**< problem statistics */
@@ -860,7 +859,6 @@ SCIP_RETCODE nodeReleaseParent(
    SCIP_NODE* parent;
 
    assert(node != NULL);
-   assert(focusnodedepth >= -1);
    assert(blkmem != NULL);
    assert(tree != NULL);
 
@@ -938,13 +936,13 @@ SCIP_RETCODE nodeReleaseParent(
       /* free parent if it is not on the current active path */
       if( freeParent && !parent->active )
       {
-         SCIP_CALL( SCIPnodeFree(&node->parent, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&node->parent, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       }
       /* update the effective root depth if not in reoptimization and active parent has children */
       else if( !set->reopt_enable && freeParent == !parent->active )
       {
          SCIP_Bool singleChild = FALSE;
-         int focusdepth = (focusnodedepth >= 0 ? focusnodedepth : SCIPtreeGetFocusDepth(tree));
+         int focusdepth = SCIPtreeGetFocusDepth(tree);
 
          assert(tree->effectiverootdepth >= 0);
 
@@ -1102,7 +1100,6 @@ SCIP_Bool SCIPtreeWasNodeLastBranchParent(
 /** frees node */
 SCIP_RETCODE SCIPnodeFree(
    SCIP_NODE**           node,               /**< node data */
-   int                   focusnodedepth,     /**< focus node's depth */
    BMS_BLKMEM*           blkmem,             /**< block memory buffer */
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_STAT*            stat,               /**< problem statistics */
@@ -1115,7 +1112,6 @@ SCIP_RETCODE SCIPnodeFree(
    SCIP_Bool isroot;
 
    assert(node != NULL);
-   assert(focusnodedepth >= -1);
    assert(*node != NULL);
    assert(!(*node)->active);
    assert(blkmem != NULL);
@@ -1216,7 +1212,7 @@ SCIP_RETCODE SCIPnodeFree(
    /* free common data */
    SCIP_CALL( SCIPconssetchgFree(&(*node)->conssetchg, blkmem, set) );
    SCIP_CALL( SCIPdomchgFree(&(*node)->domchg, blkmem, set, eventqueue, lp) );
-   SCIP_CALL( nodeReleaseParent(*node, focusnodedepth, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+   SCIP_CALL( nodeReleaseParent(*node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
 
    /* check, if the node is the current probing root */
    if( *node == tree->probingroot )
@@ -1585,7 +1581,6 @@ SCIP_RETCODE nodeActivate(
 static
 SCIP_RETCODE nodeDeactivate(
    SCIP_NODE*            node,               /**< node to deactivate */
-   int                   focusnodedepth,     /**< focus node depth */
    BMS_BLKMEM*           blkmem,             /**< block memory buffers */
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_STAT*            stat,               /**< problem statistics */
@@ -1600,7 +1595,6 @@ SCIP_RETCODE nodeDeactivate(
 
    assert(node != NULL);
    assert(node->active);
-   assert(focusnodedepth >= -1);
    assert(tree != NULL);
    assert(SCIPnodeGetType(node) != SCIP_NODETYPE_FOCUSNODE);
 
@@ -1648,10 +1642,7 @@ SCIP_RETCODE nodeDeactivate(
    }
    if( freeNode ) 
    {
-      if( focusnodedepth >= 0 )
-         SCIP_CALL( SCIPnodeFree(&node, focusnodedepth, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
-      else
-         SCIP_CALL( SCIPnodeFree(&node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+      SCIP_CALL( SCIPnodeFree(&node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
    }
 
    return SCIP_OKAY;
@@ -3146,7 +3137,6 @@ SCIP_RETCODE treeSwitchPath(
 {
    int newappliedeffectiverootdepth;
    int focusnodedepth;  /* depth of the new focus node, or -1 if focusnode == NULL */
-   int oldfocusnodedepth;  /* depth of the old focus node, or -1 if focusnode == NULL */
    int forkdepth;       /* depth of the common subroot/fork/pseudofork/junction node, or -1 if no common fork exists */
    int i;
    SCIP_NODE* oldfocusnode;
@@ -3157,9 +3147,6 @@ SCIP_RETCODE treeSwitchPath(
    assert(focusnode == NULL || (!focusnode->active && !focusnode->cutoff));
    assert(focusnode == NULL || SCIPnodeGetType(focusnode) == SCIP_NODETYPE_FOCUSNODE);
    assert(cutoff != NULL);
-
-   /* get current focusnode's depth before changing the node */
-   oldfocusnodedepth = SCIPtreeGetFocusDepth(tree);
 
    /* set new focus node */
    oldfocusnode = tree->focusnode;
@@ -3179,7 +3166,7 @@ SCIP_RETCODE treeSwitchPath(
    /* undo the domain and constraint set changes of the old active path by deactivating the path's nodes */
    for( i = tree->pathlen-1; i > forkdepth; --i )
    {
-      SCIP_CALL( nodeDeactivate(tree->path[i], oldfocusnodedepth, blkmem, set, stat, tree, lp, branchcand, eventfilter, eventqueue) );
+      SCIP_CALL( nodeDeactivate(tree->path[i], blkmem, set, stat, tree, lp, branchcand, eventfilter, eventqueue) );
    }
    tree->pathlen = forkdepth+1;
 
@@ -3203,7 +3190,7 @@ SCIP_RETCODE treeSwitchPath(
    if( oldfocusnode != NULL && SCIPnodeGetType(oldfocusnode) == SCIP_NODETYPE_DEADEND )
    {
       assert(tree->appliedeffectiverootdepth <= tree->effectiverootdepth);
-      SCIP_CALL( SCIPnodeFree(&oldfocusnode, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+      SCIP_CALL( SCIPnodeFree(&oldfocusnode, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       assert(tree->effectiverootdepth <= focusnodedepth || tree->focusnode == NULL);
    }
 
@@ -3835,7 +3822,7 @@ SCIP_RETCODE nodeToLeaf(
 
       /* delete node due to bound cut off */
       SCIPvisualCutoffNode(stat->visual, set, stat, *node, FALSE);
-      SCIP_CALL( SCIPnodeFree(node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+      SCIP_CALL( SCIPnodeFree(node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
    }
    assert(*node == NULL);
 
@@ -4493,7 +4480,7 @@ SCIP_RETCODE SCIPnodeFocus(
                tree->root == (*node), tree->focusnode == (*node), (*node)->lowerbound, tree->effectiverootdepth) );
       }
 
-      SCIP_CALL( SCIPnodeFree(node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+      SCIP_CALL( SCIPnodeFree(node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
 
       return SCIP_OKAY;
    }
@@ -5245,7 +5232,7 @@ SCIP_RETCODE SCIPtreeCutoff(
 
          SCIPvisualCutoffNode(stat->visual, set, stat, node, FALSE);
 
-         SCIP_CALL( SCIPnodeFree(&node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       }
    }
 
@@ -5268,7 +5255,7 @@ SCIP_RETCODE SCIPtreeCutoff(
 
          SCIPvisualCutoffNode(stat->visual, set, stat, node, FALSE);
 
-         SCIP_CALL( SCIPnodeFree(&node, -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&node, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
       }
    }
 
@@ -6838,10 +6825,10 @@ SCIP_RETCODE treeBacktrackProbing(
          }
 
          /* undo bound changes by deactivating the probing node */
-         SCIP_CALL( nodeDeactivate(node, -1, blkmem, set, stat, tree, lp, branchcand, eventfilter, eventqueue) );
+         SCIP_CALL( nodeDeactivate(node, blkmem, set, stat, tree, lp, branchcand, eventfilter, eventqueue) );
 
          /* free the probing node */
-         SCIP_CALL( SCIPnodeFree(&tree->path[tree->pathlen-1], -1, blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
+         SCIP_CALL( SCIPnodeFree(&tree->path[tree->pathlen-1], blkmem, set, stat, eventfilter, eventqueue, tree, lp) );
          tree->pathlen--;
       }
       assert(tree->pathlen == newpathlen);

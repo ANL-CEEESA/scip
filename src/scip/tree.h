@@ -82,7 +82,6 @@ SCIP_RETCODE SCIPnodeCreateChild(
 /** frees node */
 SCIP_RETCODE SCIPnodeFree(
    SCIP_NODE**           node,               /**< node data */
-   int                   focusnodedepth,     /**< focus node depth */
    BMS_BLKMEM*           blkmem,             /**< block memory buffer */
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_STAT*            stat,               /**< problem statistics */

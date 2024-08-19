@@ -492,6 +492,8 @@ set(pairs_Issue
     "instances/Issue/3719.cip\;0\;presolving_off"
     "instances/Issue/3722.cip\;1200008400.00755\;default"
     "instances/Issue/3723.cip\;0\;default"
+    "instances/Issue/3727.cip\;1922\;vanillafullstrong_reduced_presolving_separating_heuristics"
+    "instances/Issue/3728.cip\;0\;reduced_presolving_heuristics"
 )
 
 #
@@ -834,7 +836,7 @@ if(NOT ${TPI} STREQUAL "none")
         # configure the batch file for this test by substituting placeholders in the in.file
         #
         configure_file(interactiveshell/concurrentsolve.bat.in interactiveshell/concurrentsolve-${basename}.bat)
-        if(NOT ((${basename} STREQUAL "egout.mps") AND (${LPS} STREQUAL "spx") AND (${TPI} STREQUAL "tny")))
+        if(NOT ((${basename} STREQUAL "egout.mps") AND (${TPI} STREQUAL "tny")))
         add_test(NAME MIP-concurrentsolve-${basename}
                 COMMAND $<TARGET_FILE:scip> -b ${PROJECT_BINARY_DIR}/check/interactiveshell/concurrentsolve-${basename}.bat
                 )

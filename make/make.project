@@ -91,6 +91,8 @@ GAMS		=	gams
 PYTHON  =   none
 EMPHBENCHMARK	=	true
 CLOCKTYPE	=	1
+READBESTSOL =  false
+WRITETREELOG   =  false
 
 # set SCIP version here for external projects
 SCIP_VERSION_MAJOR = 10

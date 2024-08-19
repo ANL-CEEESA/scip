@@ -49,6 +49,8 @@ VISUALIZE="${18}"      # - true, if the branch-and-bound search should be visual
 SOLUFILE="${19}"       # - solu file, only necessary if ${SETCUTOFF} is 1
 EMPHBENCHMARK="${20}"  # - use set emphasis benchmark
 CLOCKTYPE="${21}"      # - clocktype (1 = CPU, 2 = wallclock)
+READBESTSOL="${22}"    # - should best solution be read (0 or 1)?
+WRITETREELOG="${23}"   # - should tree log file be written (0 or 1)?
 
 #args=("$@")
 #for ((i=0; i < $#; i++)) {
@@ -60,6 +62,10 @@ CLOCKTYPE="${21}"      # - clocktype (1 = CPU, 2 = wallclock)
 
 #set solfile
 SOLFILE="${CLIENTTMPDIR}/${USER}-tmpdir/${SOLBASENAME}.sol"
+#SOLFILE="${CLIENTTMPDIR}/${SOLBASENAME}.sol"
+
+#set tree log file
+TREELOGFILE="${CLIENTTMPDIR}/${USER}-tmpdir/${SOLBASENAME}.tree.log"
 
 # reset TMPFILE
 echo > "${TMPFILE}"
@@ -112,6 +118,7 @@ do
     INSTANCENAME=${INSTANCENAME%%.${i}}
 done
 INSTANCESETTINGSFILE="${INSTANCENAME}.set"
+INSTANCEBESTSOLFILE="${INSTANCENAME}.sol"
 
 if test -f "${INSTANCESETTINGSFILE}"
 then
@@ -147,6 +154,24 @@ then
     if test -f "${DECOMP}"
     then
         echo "read ${DECOMP}"                                    >> "${TMPFILE}"
+    fi
+    if test "${READBESTSOL}" = true
+    then
+        # if a solution file is available, read it into SCIP, as well
+#        echo "best sol file name = ${INSTANCEBESTSOLFILE}"
+        if test -f  "${INSTANCEBESTSOLFILE}"
+        then
+            echo "read ${INSTANCEBESTSOLFILE}"                   >> "${TMPFILE}"
+        else
+            echo "Exiting test because best solution file ${INSTANCEBESTSOLFILE} is unavailable"
+            exit 1
+        fi
+    fi
+    if test "${WRITETREELOG}" = true
+    then
+        # write tree log
+#        echo "tree log file name = ${TREELOGFILE}"
+        echo "set visual txtfilename ${TREELOGFILE}"             >> "${TMPFILE}"
     fi
     # set objective limit: optimal solution value from solu file, if existent
     if test "${SETCUTOFF}" = 1 || test "${SETCUTOFF}" = true

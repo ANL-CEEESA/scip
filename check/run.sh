@@ -45,6 +45,7 @@ OUTFILE="${TMPPATH}/${BASENAME}.out"
 ERRFILE="${TMPPATH}/${BASENAME}.err"
 SOLFILE="${TMPPATH}/${BASENAME}.sol"
 DATFILE="${TMPPATH}/${BASENAME}.dat"
+TREELOGFILE="${TMPPATH}/${BASENAME}.tree.log"
 TMPFILE="${SOLVERPATH}/${OUTPUTDIR}/${BASENAME}.tmp"
 
 uname -a                            > "${OUTFILE}"
@@ -62,6 +63,11 @@ function cleanup {
     if [ -f "${DATFILE}" ] ;
     then
         mv "${DATFILE}" "${SOLVERPATH}/${OUTPUTDIR}/${BASENAME}.dat"
+    fi
+    # move a possible tree log file
+    if [ -f "${TREELOGFILE}" ] ;
+    then
+        mv "${TREELOGFILE}" "${SOLVERPATH}/${OUTPUTDIR}/${BASENAME}.tree.log"
     fi
     rm -f "${TMPFILE}"
     rm -f "${SOLFILE}"

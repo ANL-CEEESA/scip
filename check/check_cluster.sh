@@ -79,6 +79,8 @@ SLURMACCOUNT="${31}"
 PYTHON="${32}"
 EMPHBENCHMARK="${33}"
 CLOCKTYPE="${34}"
+READBESTSOL="${35}"
+WRITETREELOG="${36}"
 
 # check if all variables defined (by checking the last one)
 if test -z "${CLOCKTYPE}"
@@ -118,6 +120,8 @@ then
     echo "PYTHON        = ${PYTHON}"
     echo "EMPHBENCHMARK = ${EMPHBENCHMARK}"
     echo "CLOCKTYPE     = ${CLOCKTYPE}"
+    echo "READBESTSOL  = ${READBESTSOL}"
+    echo "WRITETREELOG  = ${WRITETREELOG}"
     exit 1;
 fi
 
@@ -222,7 +226,8 @@ do
                 # this may modify the EXECNAME environment variable
                 . ./"${CONFFILE}" "${INSTANCE}" "${SCIPPATH}" "${TMPFILE}" "${SETNAME}" "${SETFILE}" "${THREADS}" "${SETCUTOFF}" \
                             "${FEASTOL}" "${TIMELIMIT}" "${MEMLIMIT}" "${NODELIMIT}" "${LPS}" "${DISPFREQ}" "${REOPT}" "${OPTCOMMAND}" \
-                            "${CLIENTTMPDIR}" "${FILENAME}" "${VISUALIZE}" "${SOLUFILE}" "${EMPHBENCHMARK}" "${CLOCKTYPE}"
+                            "${CLIENTTMPDIR}" "${FILENAME}" "${VISUALIZE}" "${SOLUFILE}" "${EMPHBENCHMARK}" "${CLOCKTYPE}" \
+                            "${READBESTSOL}" "${WRITETREELOG}"
 
                 JOBNAME="$(capitalize ${SOLVER})${SHORTPROBNAME}"
                 # additional environment variables needed by run.sh

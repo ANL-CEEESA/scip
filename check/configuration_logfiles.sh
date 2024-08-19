@@ -58,8 +58,11 @@ THREADS="${13}"      # the number of threads
 GLBSEEDSHIFT="${14}" # the global seed shift
 STARTPERM="${15}"    # the starting permutation
 
+BASETSTNAME=$(basename "$TSTNAME")
+BASESETNAME=$(basename "$SETNAME")
+
 # common naming scheme for eval files
-CHECKBASENAME="${SCIPPATH}/${OUTPUTDIR}/check.${TSTNAME}.${BINID}.${QUEUE}.${SETNAME}"
+CHECKBASENAME="${SCIPPATH}/${OUTPUTDIR}/check.${BASETSTNAME}.${BINID}.${QUEUE}.${BASESETNAME}"
 
 # if number of threads is larger than 1, add postfix
 if test "${THREADS}" -gt 1
@@ -168,7 +171,7 @@ NEWSHORTPROBNAME=$(echo "${SHORTPROBNAME}" | cut -c1-25)
 SHORTPROBNAME="${NEWSHORTPROBNAME}"
 
 #define file name for temporary log file
-FILENAME="${USER}.${TSTNAME}.${COUNT}"_"${SHORTPROBNAME}.${BINID}.${QUEUE}.${SETNAME}"
+FILENAME="${USER}.${BASETSTNAME}.${COUNT}"_"${SHORTPROBNAME}.${BINID}.${QUEUE}.${BASESETNAME}"
 
 # if number of threads is larger than 1, add postfix
 if test "${THREADS}" -gt 1

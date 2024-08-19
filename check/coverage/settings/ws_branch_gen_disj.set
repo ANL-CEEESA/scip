@@ -1,4 +1,5 @@
-visual/txtfilename = "blend2.txt"
+lp/disablecutoff = 1
+
 visual/displb = TRUE
 
 # priority of branching rule <vanillafullstrong>

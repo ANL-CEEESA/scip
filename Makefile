@@ -709,6 +709,7 @@ SCIPPLUGINLIBOBJ=	scip/benders_default.o \
 			scip/nodesel_hybridestim.o \
 			scip/nodesel_restartdfs.o \
 			scip/nodesel_uct.o \
+			scip/nodesel_vanillabfs.o \
 			scip/presol_boundshift.o \
 			scip/presol_convertinttobin.o \
 			scip/presol_domcol.o\

@@ -174,6 +174,7 @@
 #include "scip/nodesel_hybridestim.h"
 #include "scip/nodesel_uct.h"
 #include "scip/nodesel_restartdfs.h"
+#include "scip/nodesel_vanillabfs.h"
 #include "scip/presol_boundshift.h"
 #include "scip/presol_convertinttobin.h"
 #include "scip/presol_domcol.h"

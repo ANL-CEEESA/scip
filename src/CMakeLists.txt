@@ -185,6 +185,7 @@ set(scipsources
     scip/nodesel_hybridestim.c
     scip/nodesel_restartdfs.c
     scip/nodesel_uct.c
+    scip/nodesel_vanillabfs.c
     scip/presol_milp.cpp
     scip/presol_boundshift.c
     scip/presol_convertinttobin.c
@@ -680,6 +681,7 @@ set(scipheaders
     scip/nodesel_hybridestim.h
     scip/nodesel_restartdfs.h
     scip/nodesel_uct.h
+    scip/nodesel_vanillabfs.h
     scip/paramset.h
     scip/presol_boundshift.h
     scip/presol_milp.h

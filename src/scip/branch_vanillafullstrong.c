@@ -65,6 +65,7 @@
                                             *   changes, stat updates etc.) ? */
 #define DEFAULT_COLLECTSCORES      FALSE   /**< should strong branching scores be collected ? */
 #define DEFAULT_DONOTBRANCH        FALSE   /**< should branching be done ? */
+#define DEFAULT_UPDATECHILDBOUND   TRUE    /**< should child lower bound be updated based on strong branching? */
 
 
 /** branching rule data */
@@ -78,6 +79,7 @@ struct SCIP_BranchruleData
                                                  *   changes, stat updates etc.) ? */
    SCIP_Bool             collectscores;         /**< should strong branching scores be collected ? */
    SCIP_Bool             donotbranch;           /**< should branching be done ? */
+   SCIP_Bool             updatechildbound;      /**< should child lower bound be updated based on strong branching? */
    SCIP_VAR**            cands;                 /**< candidate variables */
    SCIP_Real*            candscores;            /**< candidate scores */
    int                   ncands;                /**< number of candidates */
@@ -471,7 +473,7 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
       allcolsinlp = SCIPallColsInLP(scip);
 
       /* update the lower bounds in the children */
-      if( !branchruledata->idempotent && allcolsinlp && !exactsolve )
+      if( (!branchruledata->idempotent || branchruledata->updatechildbound) && allcolsinlp && !exactsolve )
       {
          if( downchild != NULL )
          {
@@ -552,6 +554,10 @@ SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(
          "branching/vanillafullstrong/donotbranch",
          "should candidates only be scored, but no branching be performed?",
          &branchruledata->donotbranch, TRUE, DEFAULT_DONOTBRANCH, NULL, NULL) );
+   SCIP_CALL( SCIPaddBoolParam(scip,
+         "branching/vanillafullstrong/updatechildbound",
+         "should child lower bound be updated based on strong branching?",
+         &branchruledata->updatechildbound, TRUE, DEFAULT_UPDATECHILDBOUND, NULL, NULL) );
 
    return SCIP_OKAY;
 }

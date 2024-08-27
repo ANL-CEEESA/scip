@@ -147,6 +147,16 @@ void SCIPvisualFoundSolution(
    SCIP_SOL*             sol                 /**< solution that has been found */
    );
 
+/** outputs a new node lower bound to the visualization output file */
+SCIP_EXPORT
+SCIP_RETCODE SCIPvisualNodeLowerbound(
+   SCIP_VISUAL*          visual,             /**< visualization information */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_STAT*            stat,               /**< problem statistics */
+   SCIP_NODE*            node,               /**< new node, that was created */
+   SCIP_Real             lowerbound          /**< new lower bound */
+   );
+
 /** outputs a new global lower bound to the visualization output file */
 SCIP_EXPORT
 void SCIPvisualLowerbound(

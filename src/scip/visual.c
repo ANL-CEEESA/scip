@@ -753,44 +753,64 @@ void SCIPvisualCutoffNode(
          else
             varub = branchbound;
 
-         if ( infeasible )
+         if( !SCIPsetIsInfinity(set, lowerbound) )
          {
-            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n", (int)nodenum, (int)parentnodenum, t,
-                  varname, varlb, varub);
+            /* node is fathomed */
+            assert(!infeasible);
+
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g %f\n", (int)nodenum,
+                  (int)parentnodenum, t, varname, varlb, varub, lowerbound);
          }
          else
          {
-            /* node is fathomed */
-            if( !SCIPsetIsInfinity(set, lowerbound) )
+            /* node is either infeasible or cut off by bound */
+            assert(infeasible || SCIPnodeIsCutoffbybound(node));
+
+            if(infeasible)
             {
-               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g %f\n", (int)nodenum,
-                     (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d %c %s %g %g infinity\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub);
+            }
+            else if( SCIPnodeIsCutoffbybound(node) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g infinity\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub);
             }
             else
             {
-               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d %c %s %g %g infinity\n", (int)nodenum,
-                     (int)parentnodenum, t, varname, varlb, varub);
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "unknown %d %d %c %s %g %g infinity\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub);
             }
          }
       }
       else
       {
-         if ( infeasible )
+         if( !SCIPsetIsInfinity(set, lowerbound) )
          {
-            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d - - - - infinity\n",
-                  (int)nodenum, (int)parentnodenum);
+            /* node is fathomed */
+            assert(!infeasible);
+
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - %f\n", (int)nodenum,
+                  (int)parentnodenum, lowerbound);
          }
          else
          {
-            /* node is fathomed */
-            if( !SCIPsetIsInfinity(set, lowerbound) )
+            /* node is either infeasible or cut off by bound */
+            assert(infeasible || SCIPnodeIsCutoffbybound(node));
+
+            if(infeasible)
             {
-               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - %f\n", (int)nodenum,
-                     (int)parentnodenum, lowerbound);
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "infeasible %d %d - - - - infinity\n",
+                     (int)nodenum, (int)parentnodenum);
+            }
+            else if( SCIPnodeIsCutoffbybound(node) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - infinity\n",
+                     (int)nodenum, (int)parentnodenum);
             }
             else
             {
-               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "fathomed %d %d - - - - infinity\n",
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "unknown %d %d - - - - infinity\n",
                      (int)nodenum, (int)parentnodenum);
             }
          }

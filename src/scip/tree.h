@@ -331,6 +331,11 @@ void SCIPnodeSetEstimate(
    SCIP_Real             newestimate         /**< new estimated bound for the node */
    );
 
+/** returns the node's parameter cutoffbybound */
+SCIP_Bool SCIPnodeIsCutoffbybound(
+   SCIP_NODE*            node                /**< node to return the status */
+   );
+
 /** propagates implications of binary fixings at the given node triggered by the implication graph and the clique table */
 SCIP_RETCODE SCIPnodePropagateImplics(
    SCIP_NODE*            node,               /**< node to propagate implications on */

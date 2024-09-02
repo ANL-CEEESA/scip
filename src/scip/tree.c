@@ -1031,6 +1031,7 @@ SCIP_RETCODE nodeCreate(
    (*node)->cutoff = FALSE;
    (*node)->reprop = FALSE;
    (*node)->repropsubtreemark = 0;
+   (*node)->cutoffbybound = FALSE;
 
    return SCIP_OKAY;
 }
@@ -1264,6 +1265,10 @@ SCIP_RETCODE SCIPnodeCutoff(
    node->estimate = SCIPsetInfinity(set);
    if( node->active )
       tree->cutoffdepth = MIN(tree->cutoffdepth, (int)node->depth);
+
+   /* mark the node as cut off by bound */
+   if( SCIPsetIsGE(set, oldbound, SCIPgetCutoffbound(set->scip)) && (node->cutoffbybound == FALSE) )
+      node->cutoffbybound = TRUE;
 
    /* update primal integral */
    if( node->depth == 0 )
@@ -2393,6 +2398,13 @@ void SCIPnodeUpdateLowerbound(
       node->lowerbound = newbound;
       node->estimate = MAX(node->estimate, newbound);
 
+      /* mark the node as cut off by bound
+       * note: if newbound is finite, then it is not yet certain whether the node is being cut off already.
+       */
+      if( SCIPsetIsInfinity(set, newbound) && (node->cutoffbybound == FALSE) &&
+            SCIPsetIsGE(set, oldbound, SCIPgetCutoffbound(set->scip)) )
+         node->cutoffbybound = TRUE;
+
       if( node->depth == 0 )
       {
          stat->rootlowerbound = newbound;
@@ -2483,6 +2495,16 @@ void SCIPnodeSetEstimate(
    /* due to numerical reasons we need this check, see https://git.zib.de/integer/scip/issues/2866 */
    if( node->lowerbound <= newestimate )
       node->estimate = newestimate;
+}
+
+/** returns the node's parameter cutoffbybound */
+SCIP_Bool SCIPnodeIsCutoffbybound(
+   SCIP_NODE*            node                /**< node to return the status */
+   )
+{
+   assert(node != NULL);
+
+   return node->cutoffbybound;
 }
 
 /** propagates implications of binary fixings at the given node triggered by the implication graph and the clique table */

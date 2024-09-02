@@ -165,6 +165,7 @@ struct SCIP_Node
    unsigned int          cutoff:1;           /**< should the node and all sub nodes be cut off from the tree? */
    unsigned int          reprop:1;           /**< should propagation be applied again, if the node is on the active path? */
    unsigned int          nodetype:4;         /**< type of node */
+   SCIP_Bool             cutoffbybound;      /**< is the node cut off due to the bounding logic? */
 };
 
 /** bound change information for pending bound changes */

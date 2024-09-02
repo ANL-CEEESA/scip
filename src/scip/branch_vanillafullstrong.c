@@ -473,7 +473,7 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
       allcolsinlp = SCIPallColsInLP(scip);
 
       /* update the lower bounds in the children */
-      if( (!branchruledata->idempotent || branchruledata->updatechildbound) && allcolsinlp && !exactsolve )
+      if( branchruledata->updatechildbound && allcolsinlp && !exactsolve )
       {
          if( downchild != NULL )
          {

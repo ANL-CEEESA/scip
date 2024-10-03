@@ -190,6 +190,7 @@ set(scipsources
     scip/presol_boundshift.c
     scip/presol_convertinttobin.c
     scip/presol_domcol.c
+    scip/presol_donotmultaggr.c
     scip/presol_dualagg.c
     scip/presol_dualcomp.c
     scip/presol_dualinfer.c
@@ -687,6 +688,7 @@ set(scipheaders
     scip/presol_milp.h
     scip/presol_convertinttobin.h
     scip/presol_domcol.h
+    scip/presol_donotmultaggr.h
     scip/presol_dualagg.h
     scip/presol_dualcomp.h
     scip/presol_dualinfer.h

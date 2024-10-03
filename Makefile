@@ -713,6 +713,7 @@ SCIPPLUGINLIBOBJ=	scip/benders_default.o \
 			scip/presol_boundshift.o \
 			scip/presol_convertinttobin.o \
 			scip/presol_domcol.o\
+			scip/presol_donotmultaggr.o\
 			scip/presol_dualagg.o\
 			scip/presol_dualcomp.o\
 			scip/presol_dualinfer.o\

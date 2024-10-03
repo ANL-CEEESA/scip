@@ -178,6 +178,7 @@
 #include "scip/presol_boundshift.h"
 #include "scip/presol_convertinttobin.h"
 #include "scip/presol_domcol.h"
+#include "scip/presol_donotmultaggr.h"
 #include "scip/presol_dualagg.h"
 #include "scip/presol_dualcomp.h"
 #include "scip/presol_dualinfer.h"

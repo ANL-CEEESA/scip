@@ -118,7 +118,6 @@ do
     INSTANCENAME=${INSTANCENAME%%.${i}}
 done
 INSTANCESETTINGSFILE="${INSTANCENAME}.set"
-INSTANCEBESTSOLFILE="${INSTANCENAME}.sol"
 
 if test -f "${INSTANCESETTINGSFILE}"
 then
@@ -147,10 +146,10 @@ if test "${REOPT}" = false
 then
     # read and solve the instance
     echo "read ${INSTANCE}"                                      >> "${TMPFILE}"
-    INSTANCENAME=${INSTANCE%%.gz}
+    INSTANCENAME2=${INSTANCE%%.gz}
     # if a decomposition in gzipped format (.dec.gz) with the basename of the instance lies in the same directory,
     # read it into SCIP, as well
-    DECOMP="${INSTANCENAME}.dec.gz"
+    DECOMP="${INSTANCENAME2}.dec.gz"
     if test -f "${DECOMP}"
     then
         echo "read ${DECOMP}"                                    >> "${TMPFILE}"
@@ -159,12 +158,21 @@ then
     then
         # if a solution file is available, read it into SCIP, as well
 #        echo "best sol file name = ${INSTANCEBESTSOLFILE}"
-        if test -f  "${INSTANCEBESTSOLFILE}"
+        SOLFILEEXISTS=false
+        for ext in sol sol.gz
+        do
+            INSTANCEBESTSOLFILE="${INSTANCENAME}.${ext}"
+            if test -f  "${INSTANCEBESTSOLFILE}"
+            then
+                SOLFILEEXISTS=true
+                break
+            fi
+        done
+        if test "${SOLFILEEXISTS}" = true
         then
             echo "read ${INSTANCEBESTSOLFILE}"                   >> "${TMPFILE}"
         else
-            echo "Exiting test because best solution file ${INSTANCEBESTSOLFILE} is unavailable"
-            exit 1
+            echo "Best solution file ${INSTANCEBESTSOLFILE} is unavailable"
         fi
     fi
     if test "${WRITETREELOG}" = true

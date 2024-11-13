@@ -1249,7 +1249,6 @@ SCIP_RETCODE SCIPnodeCutoff(
    )
 {
    SCIP_NODETYPE nodetype = SCIPnodeGetType(node);
-   SCIP_Real oldbound = node->lowerbound;
 
    assert(set != NULL);
    assert(stat != NULL);
@@ -1258,7 +1257,7 @@ SCIP_RETCODE SCIPnodeCutoff(
       || !set->misc_calcintegral || SCIPsetIsRelEQ(set, SCIPtreeGetLowerbound(tree, set), stat->lastlowerbound));
 
    /* mark the node as cut off by bound */
-   if( SCIPsetIsGE(set, oldbound, SCIPgetCutoffbound(set->scip)) && (node->cutoffbybound == FALSE) )
+   if( !SCIPsetIsInfinity(set, node->lowerbound) && SCIPsetIsGE(set, node->lowerbound, SCIPgetCutoffbound(set->scip)) )
       node->cutoffbybound = TRUE;
 
    SCIPsetDebugMsg(set, "cutting off %s node #%" SCIP_LONGINT_FORMAT " at depth %d (cutoffdepth: %d)\n",
@@ -2414,8 +2413,7 @@ void SCIPnodeUpdateLowerbound(
       /* mark the node as cut off by bound
        * note: if newbound is finite, then it is not yet certain whether the node is being cut off already.
        */
-      if( SCIPsetIsInfinity(set, newbound) && (node->cutoffbybound == FALSE) &&
-            SCIPsetIsGE(set, oldbound, SCIPgetCutoffbound(set->scip)) )
+      if( SCIPsetIsInfinity(set, newbound) && !SCIPsetIsInfinity(set, oldbound) && SCIPsetIsGE(set, oldbound, SCIPgetCutoffbound(set->scip)) )
          node->cutoffbybound = TRUE;
 
       if( node->depth == 0 )

@@ -4523,6 +4523,10 @@ SCIP_RETCODE SCIPnodeFocus(
          /* remove node from the queue */
          SCIP_CALL( SCIPnodepqRemove(tree->leaves, set, *node) );
 
+         if( !SCIPsetIsInfinity(set, SCIPnodeGetLowerbound(*node)) )
+         {
+            (*node)->cutoffbybound = TRUE;
+         }
          (*node)->cutoff = TRUE;
          (*node)->lowerbound = SCIPsetInfinity(set);
          (*node)->estimate = SCIPsetInfinity(set);

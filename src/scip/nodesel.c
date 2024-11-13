@@ -697,6 +697,11 @@ SCIP_RETCODE SCIPnodepqBound(
          if( !nodepqDelPos(nodepq, set, pos) )
             --pos;
 
+         /* mark node as pruned due to bound */
+         if( !SCIPsetIsInfinity(set, SCIPnodeGetLowerbound(node)) )
+         {
+            node->cutoffbybound = TRUE;
+         }
          node->cutoff = TRUE;
          node->lowerbound = SCIPsetInfinity(set);
          node->estimate = SCIPsetInfinity(set);

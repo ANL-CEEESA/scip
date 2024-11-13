@@ -3767,15 +3767,16 @@ SCIP_RETCODE SCIPupdateNodeLowerbound(
 {
    SCIP_CALL( SCIPcheckStage(scip, "SCIPupdateNodeLowerbound", FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE) );
 
-   /* if lowerbound exceeds the cutoffbound, the node will be marked to be cutoff instead
+   /* if lowerbound exceeds the cutoffbound, the node will be marked to be cutoff
     *
     * If the node is an inner node (not a child node) we need to cutoff the node manually if we exceed the cutoffbound.
     * This is only relevant if a user updates the lower bound. Therefore, we only check for a cutoff here in the user
     * function instead of in SCIPnodeUpdateLowerbound().
     */
-   if( SCIPisLT(scip, newbound, scip->primal->cutoffbound) )
+   if( !SCIPisInfinity(scip, newbound) )
       SCIPnodeUpdateLowerbound(node, scip->stat, scip->set, scip->tree, scip->transprob, scip->origprob, newbound);
-   else
+
+   if( SCIPisGE(scip, newbound, scip->primal->cutoffbound) )
    {
       SCIP_CALL( SCIPnodeCutoff(node, scip->set, scip->stat, scip->tree, scip->transprob, scip->origprob, scip->reopt, scip->lp, scip->mem->probmem) );
    }

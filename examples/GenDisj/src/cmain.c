@@ -50,7 +50,7 @@ SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* so
    {
       if( SCIPfileExists(filename) )
       {
-         SCIPinfoMessage(scip, NULL, "reading initial solution file <%s>\n", filename);
+         SCIPinfoMessage(scip, NULL, "\nreading initial solution file <%s>\n", filename);
          file = SCIPfopen(filename, "r");
 
          if( file == NULL )
@@ -146,7 +146,6 @@ SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* so
             break;
          }
       }
-      SCIP_CALL( SCIPcaptureVar(scip, var) );
       SCIP_CALL( SCIPhashmapInsert(solvals, (void*)var, (void*)(size_t)val) );
 
       SCIP_CALL( SCIPsetSolVal(scip, sol, var, val) );
@@ -194,7 +193,7 @@ SCIP_RETCODE readProblem(
    {
       if ( SCIPfileExists(filename) )
       {
-         SCIPinfoMessage(scip, NULL, "reading problem <%s> ...\n\n", filename);
+         SCIPinfoMessage(scip, NULL, "\nreading problem <%s> ...\n\n", filename);
          SCIP_CALL( SCIPreadProb(scip, filename, NULL) );
 
          return SCIP_OKAY;
@@ -265,7 +264,7 @@ SCIP_RETCODE runSCIP(
    {
       if ( SCIPfileExists(gendisjfilename) )
       {
-         SCIPinfoMessage(scip, NULL, "opening general disjunctions file <%s> ...\n\n", gendisjfilename);
+         SCIPinfoMessage(scip, NULL, "\nopening general disjunctions file <%s> ...\n", gendisjfilename);
          gendisjfile = SCIPfopen(gendisjfilename, "r");
 
          if( gendisjfile == NULL )
@@ -287,40 +286,40 @@ SCIP_RETCODE runSCIP(
    else
       return SCIP_NOFILE;
 
-   char* token;
    SCIP_Bool error = FALSE;
-   SCIP_VAR* var;
    int consid = 0;
-   int noldvarsindisj = 0;
-   int i = 0;
 
    /* read the gendisj file */
+   SCIPinfoMessage(scip, NULL, "reading general disjunctions...\n");
    while( !SCIPfeof(gendisjfile) && !(error) )
    {
       char buffer[SCIP_MAXSTRLEN];
-      noldvarsindisj = 0;
 
       /* get next line */
       if( SCIPfgets(buffer, (int) sizeof(buffer), gendisjfile) == NULL )
          break;
 
-      i++;
-      SCIPinfoMessage(scip, NULL, "\nreading disjunction <%d>", i);
+      char* token;
+      int noldvarsindisj = 0;
 
       token = strtok(buffer, " \t\n");
 
       /* parse the number of existing variables in the disjunction */
       if( token != NULL )
          noldvarsindisj = atoi(token);
-      SCIPinfoMessage(scip, NULL, "\nnumber of existing vars in disjunction <%d> = %d.\n", i, noldvarsindisj);
 
       /* parse the variables */
-      SCIP_VAR* vars[noldvarsindisj + 1];
-      SCIP_Real vals[noldvarsindisj + 1];
       SCIP_Real disjvarval = 0.0;
       int nvarsindisj = 0;
 
-      while( ((token = strtok(NULL, " \t\n")) != NULL) && (nvarsindisj < noldvarsindisj) )
+      /* create an empty constraint */
+      char disjconsname[SCIP_MAXSTRLEN];
+      SCIPsnprintf(disjconsname, SCIP_MAXSTRLEN, "c%d", SCIPgetNConss(scip) + 1);
+      SCIP_CONS* cons;
+      SCIP_CALL( SCIPcreateConsBasicLinear(scip, &cons, disjconsname, 0, NULL, NULL, 0.0, 0.0) );
+
+
+      while( ((token = strtok(NULL, " \t\n")) != NULL) )
       {
          SCIP_Real coeff = 1.0;
 
@@ -332,6 +331,7 @@ SCIP_RETCODE runSCIP(
          }
 
          char* varname = strdup(token);
+         SCIP_VAR* var;
 
          var = SCIPfindVar(scip, varname);
          if (var == NULL)
@@ -341,16 +341,19 @@ SCIP_RETCODE runSCIP(
 
             goto cleanup_and_continue;
          }
-         free(varname);
 
-         vars[nvarsindisj] = var;
-         vals[nvarsindisj] = -1.0 * coeff;
-         nvarsindisj++;
+         /* add the existing variable and coefficient to the new constraint */
+         SCIP_CALL( SCIPaddCoefLinear(scip, cons, var, -1.0 * coeff) );
 
          /* compute the value of the new disjunction variable based on the initial solution */
          void* varval = SCIPhashmapGetImage(initsolvals, (void*)var);
          disjvarval += coeff * (varval ? (SCIP_Real)(size_t)varval : 0.0);
+
+         nvarsindisj++;
+         free(varname);
       }
+
+      assert(nvarsindisj == noldvarsindisj);
 
       /* create a new variable `zdisjN` */
       char disjvarname[SCIP_MAXSTRLEN];
@@ -362,43 +365,44 @@ SCIP_RETCODE runSCIP(
       SCIP_CALL( SCIPcreateVarBasic(scip, &disjvar, disjvarname, -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_INTEGER) );
       SCIP_CALL( SCIPaddVar(scip, disjvar) );
 
-      vars[nvarsindisj] = disjvar;
-      vals[nvarsindisj] = 1.0;
-      nvarsindisj++;
+      /* add the new variable and its coefficient to the new constraint */
+      SCIP_CALL( SCIPaddCoefLinear(scip, cons, disjvar, 1.0) );
 
-      /* create and add the constraint */
-      char disjconsname[SCIP_MAXSTRLEN];
-      SCIPsnprintf(disjconsname, SCIP_MAXSTRLEN, "c%d", SCIPgetNConss(scip) + 1);
-      SCIP_CONS* cons;
-
-      /* create and add a constraint for the general disjunction */
-      SCIP_CALL( SCIPcreateConsBasicLinear(scip, &cons, disjconsname, nvarsindisj, vars, vals, 0.0, 0.0) );
+      /* add the constraint */
       SCIP_CALL( SCIPaddCons(scip, cons) );
 
       /* print the general disjunction */
+      /*
       SCIP_CALL( SCIPprintCons(scip, cons, NULL) );
       SCIPinfoMessage(scip, NULL, "\n");
-
-      /* release the constraint */
-      SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+      */
 
       /* update the disjunction variable's value in the solution */
       SCIP_CALL( SCIPsetSolVal(scip, initsol, disjvar, disjvarval) );
+
+      /* release the variable and constraint */
+      SCIP_CALL( SCIPreleaseVar(scip, &disjvar) );
+      SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
       consid++;
 
 cleanup_and_continue:
       continue;
    }
-
+   SCIPinfoMessage(scip, NULL, "added <%d> general disjunctions.\n", consid);
    SCIPfclose(gendisjfile);
 
    /* pass the initial solution to SCIP */
    SCIP_Bool stored;
    SCIP_CALL( SCIPaddSolFree(scip, &initsol, &stored) );
+   assert(initsol == NULL);
+   SCIPinfoMessage(scip, NULL, "\nappended initial solution with general disjunction variables and values.\n");
 
    /* solve the problem */
    SCIP_CALL( SCIPsolve(scip) );
+
+   /* free hash map */
+   SCIPhashmapFree(&initsolvals);
 
    /* free SCIP */
    SCIP_CALL( SCIPfree(&scip) );

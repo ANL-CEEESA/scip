@@ -93,6 +93,15 @@ SCIP_RETCODE SCIPvisualUpdateChild(
    SCIP_NODE*            node                /**< new node, that was created */
    );
 
+/** updates a node entry with branching variable value in the visualization output file */
+SCIP_RETCODE SCIPvisualUpdateChildWithVal(
+   SCIP_VISUAL*          visual,             /**< visualization information */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_STAT*            stat,               /**< problem statistics */
+   SCIP_NODE*            node,               /**< new node, that was created */
+   SCIP_Real             val                 /**< branching variable value */
+   );
+
 /** marks node as solved in visualization output file */
 SCIP_EXPORT
 void SCIPvisualSolvedNode(

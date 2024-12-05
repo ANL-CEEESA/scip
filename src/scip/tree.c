@@ -5800,6 +5800,7 @@ SCIP_RETCODE SCIPtreeBranchVar(
       SCIP_CALL( SCIPnodeAddBoundchg(node, blkmem, set, stat, transprob, origprob, tree, reopt, lp, branchcand, eventqueue,
             NULL, var, downub, SCIP_BOUNDTYPE_UPPER, FALSE) );
       /* output branching bound change to visualization file */
+      SCIP_CALL( SCIPvisualUpdateChildWithVal(stat->visual, set, stat, node, val) );
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
 
       if( downchild != NULL )
@@ -5825,6 +5826,7 @@ SCIP_RETCODE SCIPtreeBranchVar(
                NULL, var, fixval, SCIP_BOUNDTYPE_UPPER, FALSE) );
       }
       /* output branching bound change to visualization file */
+      SCIP_CALL( SCIPvisualUpdateChildWithVal(stat->visual, set, stat, node, val) );
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
 
       if( eqchild != NULL )
@@ -5845,6 +5847,7 @@ SCIP_RETCODE SCIPtreeBranchVar(
       SCIP_CALL( SCIPnodeAddBoundchg(node, blkmem, set, stat, transprob, origprob, tree, reopt, lp, branchcand, eventqueue,
             NULL, var, uplb, SCIP_BOUNDTYPE_LOWER, FALSE) );
       /* output branching bound change to visualization file */
+      SCIP_CALL( SCIPvisualUpdateChildWithVal(stat->visual, set, stat, node, val) );
       SCIP_CALL( SCIPvisualUpdateChild(stat->visual, set, stat, node) );
 
       if( upchild != NULL )

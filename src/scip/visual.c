@@ -560,6 +560,143 @@ SCIP_RETCODE SCIPvisualUpdateChild(
    return SCIP_OKAY;
 }
 
+/** updates a node entry with branching variable value in the visualization output file */
+SCIP_RETCODE SCIPvisualUpdateChildWithVal(
+   SCIP_VISUAL*          visual,             /**< visualization information */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_STAT*            stat,               /**< problem statistics */
+   SCIP_NODE*            node,               /**< new node, that was created */
+   SCIP_Real             val                 /**< branching variable value */
+   )
+{
+   SCIP_VAR* branchvar;
+   SCIP_BOUNDTYPE branchtype;
+   SCIP_Real branchbound;
+   SCIP_Real lowerbound;
+   int nodenum;
+
+   assert( visual != NULL );
+   assert( stat != NULL );
+   assert( node != NULL );
+
+   /* check whether output should be created */
+   if ( visual->txtfile == NULL )
+      return SCIP_OKAY;
+
+   /* visualization is disabled on probing nodes */
+   if( SCIPnodeGetType(node) == SCIP_NODETYPE_PROBINGNODE )
+      return SCIP_OKAY;
+
+   /* get node num from hash map */
+   nodenum = SCIPhashmapGetImageInt(visual->nodenum, node);
+   assert(nodenum > 0);
+
+   /* get branching information */
+   getBranchInfo(node, &branchvar, &branchtype, &branchbound);
+
+   /* determine lower bound */
+   if ( set->visual_objextern )
+      lowerbound = SCIPretransformObj(set->scip, SCIPnodeGetLowerbound(node));
+   else
+      lowerbound = SCIPnodeGetLowerbound(node);
+
+   if ( visual->txtfile != NULL )
+   {
+      int parentnodenum;
+      char t = 'M';
+      const char* varname;
+      SCIP_Real varlb;
+      SCIP_Real varub;
+
+      /* determine branching type */
+      if ( branchvar != NULL )
+         t = (branchtype == SCIP_BOUNDTYPE_LOWER ? 'R' : 'L');
+
+      /* get nodenum of parent node from hash map */
+      parentnodenum = (node->parent != NULL ? SCIPhashmapGetImageInt(visual->nodenum, node->parent) : 0);
+      assert(node->parent == NULL || parentnodenum > 0);
+
+      /* update info depending on the node type */
+      switch( SCIPnodeGetType(node) )
+      {
+      case SCIP_NODETYPE_CHILD:
+         /* the child is a new candidate, do nothing */
+         /* append new status line with updated node information to the txtfile */
+         assert((int)parentnodenum > 0);
+         varname = SCIPvarGetName(branchvar);
+         /* strip 't_' from varname */
+         if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+         {
+            varname = varname + 2;
+         }
+         varlb = SCIPvarGetLbLocal(branchvar);
+         varub = SCIPvarGetUbLocal(branchvar);
+         if( branchtype == SCIP_BOUNDTYPE_LOWER )
+            varlb = branchbound;
+         else
+            varub = branchbound;
+         if( !SCIPsetIsInfinity(set, lowerbound) )
+         {
+            if( val != SCIP_INVALID )
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g %f %f\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub, val, lowerbound);
+            else
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g - %f\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+         }
+         else
+         {
+            if( val != SCIP_INVALID )
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g %f infinity\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub, val);
+            else
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "candidate %d %d %c %s %g %g - infinity\n",
+                     (int)nodenum, (int)parentnodenum, t, varname, varlb, varub);
+         }
+         break;
+      case SCIP_NODETYPE_FOCUSNODE:
+         /* the focus node is updated to a branch node */
+         /* append new status line with updated node information to the txtfile */
+         if( (int)parentnodenum == 0 )
+         {
+            SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d - - - - %f\n", (int)nodenum, (int)parentnodenum,
+                  lowerbound);
+         }
+         else
+         {
+            varname = SCIPvarGetName(branchvar);
+            /* strip 't_' from varname */
+            if( SCIPvarIsTransformedOrigvar(branchvar) && strncmp(SCIPvarGetName(branchvar), "t_", 2) == 0)
+            {
+               varname = varname + 2;
+            }
+            varlb = SCIPvarGetLbLocal(branchvar);
+            varub = SCIPvarGetUbLocal(branchvar);
+            if( branchtype == SCIP_BOUNDTYPE_LOWER )
+               varlb = branchbound;
+            else
+               varub = branchbound;
+            if( !SCIPsetIsInfinity(set, lowerbound) )
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g %f\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub, lowerbound);
+            }
+            else
+            {
+               SCIPmessageFPrintInfo(visual->messagehdlr, visual->txtfile, "branched %d %d %c %s %g %g infinity\n", (int)nodenum,
+                     (int)parentnodenum, t, varname, varlb, varub);
+            }
+         }
+         break;
+      default:
+         SCIPerrorMessage("Error: Unexpected node type <%d> in Update Child Method", SCIPnodeGetType(node));
+         return SCIP_INVALIDDATA;
+      } /*lint !e788*/
+   }
+
+   return SCIP_OKAY;
+}
+
 /** changes the color of the node to the given color */
 static
 void vbcSetColor(

@@ -37,39 +37,53 @@
 #include <zlib.h>
 #include <stdbool.h>
 
-#define MAX_LINE_LEN 1024
-#define MAX_VARS_PER_LINE 100
-
 /** Helper function to read an initial solution file */
 static
-SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* var_values, SCIP_SOL* solution)
+SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* solvals, SCIP_SOL* sol)
 {
    SCIP_FILE* file;
    SCIP_Bool error;
    int lineno;
-   SCIP_Bool unknownvariablemessage;
-   file = SCIPfopen(filename, "r");
-   if( file == NULL )
+   SCIP_Bool unknownvar;
+
+   if( filename != NULL )
    {
-      SCIPerrorMessage("cannot open file <%s> for reading\n", filename);
-      SCIPprintSysError(filename);
-      return SCIP_NOFILE;
+      if( SCIPfileExists(filename) )
+      {
+         SCIPinfoMessage(scip, NULL, "reading initial solution file <%s>\n", filename);
+         file = SCIPfopen(filename, "r");
+
+         if( file == NULL )
+         {
+            SCIPerrorMessage("unable to read initial solution file <%s>\n", filename);
+
+            return SCIP_READERROR;
+         }
+      }
+      else
+      {
+         SCIPinfoMessage(scip, NULL, "initial solution file <%s> not found\n", filename);
+
+         return SCIP_NOFILE;
+      }
    }
+   else
+      return SCIP_NOFILE;
 
    error = FALSE;
    lineno = 0;
-   unknownvariablemessage = FALSE;
+   unknownvar = FALSE;
 
    /* read the file */
    while( !SCIPfeof(file) && !(error) )
    {
       char buffer[SCIP_MAXSTRLEN];
       char varname[SCIP_MAXSTRLEN];
-      char valuestring[SCIP_MAXSTRLEN];
-      char objstring[SCIP_MAXSTRLEN];
+      char varvalstr[SCIP_MAXSTRLEN];
+      char varobjstr[SCIP_MAXSTRLEN];
       char format[SCIP_MAXSTRLEN];
       SCIP_VAR* var;
-      SCIP_Real value;
+      SCIP_Real val;
       int nread;
 
       /* get next line */
@@ -79,18 +93,18 @@ SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* va
 
       /* there are some lines which may precede the solution information */
       if( SCIPstrncasecmp(buffer, "solution status:", 16) == 0 || SCIPstrncasecmp(buffer, "objective value:", 16) == 0 ||
-         SCIPstrncasecmp(buffer, "Log started", 11) == 0 || SCIPstrncasecmp(buffer, "Variable Name", 13) == 0 ||
-         SCIPstrncasecmp(buffer, "All other variables", 19) == 0 || strspn(buffer, " \n\r\t\f") == strlen(buffer) ||
-         SCIPstrncasecmp(buffer, "NAME", 4) == 0 || SCIPstrncasecmp(buffer, "ENDATA", 6) == 0 ||    /* allow parsing of SOL-format on the MIPLIB 2003 pages */
-         SCIPstrncasecmp(buffer, "=obj=", 5) == 0 )    /* avoid "unknown variable" warning when reading MIPLIB SOL files */
+            SCIPstrncasecmp(buffer, "Log started", 11) == 0 || SCIPstrncasecmp(buffer, "Variable Name", 13) == 0 ||
+            SCIPstrncasecmp(buffer, "All other variables", 19) == 0 || strspn(buffer, " \n\r\t\f") == strlen(buffer) ||
+            SCIPstrncasecmp(buffer, "NAME", 4) == 0 || SCIPstrncasecmp(buffer, "ENDATA", 6) == 0 ||    /* allow parsing of SOL-format on the MIPLIB 2003 pages */
+            SCIPstrncasecmp(buffer, "=obj=", 5) == 0 )    /* avoid "unknown variable" warning when reading MIPLIB SOL files */
          continue;
 
       /* parse the line */
       (void) SCIPsnprintf(format, SCIP_MAXSTRLEN, "%%%ds %%%ds %%%ds\n", SCIP_MAXSTRLEN, SCIP_MAXSTRLEN, SCIP_MAXSTRLEN);
-      nread = sscanf(buffer, format, varname, valuestring, objstring);
+      nread = sscanf(buffer, format, varname, varvalstr, varobjstr);
       if( nread < 2 )
       {
-         SCIPerrorMessage("Invalid input line %d in solution file <%s>: <%s>.\n", lineno, filename, buffer);
+         SCIPerrorMessage("invalid input line %d in solution file <%s>: <%s>.\n", lineno, filename, buffer);
          error = TRUE;
          break;
       }
@@ -99,43 +113,43 @@ SCIP_RETCODE readSolutionFile(SCIP* scip, const char* filename, SCIP_HASHMAP* va
       var = SCIPfindVar(scip, varname);
       if( var == NULL )
       {
-         if( !unknownvariablemessage )
+         if( !unknownvar )
          {
             SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "unknown variable <%s> in line %d of solution file <%s>\n",
-               varname, lineno, filename);
+                  varname, lineno, filename);
             SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "  (further unknown variables are ignored)\n");
-            unknownvariablemessage = TRUE;
+            unknownvar = TRUE;
          }
          continue;
       }
 
       /* cast the value */
-      if( SCIPstrncasecmp(valuestring, "inv", 3) == 0 )
+      if( SCIPstrncasecmp(varvalstr, "inv", 3) == 0 )
          continue;
-      else if( SCIPstrncasecmp(valuestring, "+inf", 4) == 0 || SCIPstrncasecmp(valuestring, "inf", 3) == 0 )
-         value = SCIPinfinity(scip);
-      else if( SCIPstrncasecmp(valuestring, "-inf", 4) == 0 )
-         value = -SCIPinfinity(scip);
-      else if( SCIPstrncasecmp(valuestring, "unknown", 7) == 0 )
+      else if( SCIPstrncasecmp(varvalstr, "+inf", 4) == 0 || SCIPstrncasecmp(varvalstr, "inf", 3) == 0 )
+         val = SCIPinfinity(scip);
+      else if( SCIPstrncasecmp(varvalstr, "-inf", 4) == 0 )
+         val = -SCIPinfinity(scip);
+      else if( SCIPstrncasecmp(varvalstr, "unknown", 7) == 0 )
       {
-         value = SCIP_UNKNOWN;
+         val = SCIP_UNKNOWN;
       }
       else
       {
          /* coverity[secure_coding] */
-         nread = sscanf(valuestring, "%lf", &value);
+         nread = sscanf(varvalstr, "%lf", &val);
          if( nread != 1 )
          {
-            SCIPerrorMessage("Invalid solution value <%s> for variable <%s> in line %d of solution file <%s>.\n",
-               valuestring, varname, lineno, filename);
+            SCIPerrorMessage("invalid solution value <%s> for variable <%s> in line %d of solution file <%s>.\n",
+                  varvalstr, varname, lineno, filename);
             error = TRUE;
             break;
          }
       }
-      SCIP_CALL(SCIPcaptureVar(scip, var)); // Capture for hashmap storage
-      SCIP_CALL(SCIPhashmapInsert(var_values, (void*)var, (void*)(size_t)value));
+      SCIP_CALL( SCIPcaptureVar(scip, var) );
+      SCIP_CALL( SCIPhashmapInsert(solvals, (void*)var, (void*)(size_t)val) );
 
-      SCIP_CALL(SCIPsetSolVal(scip, solution, var, value));
+      SCIP_CALL( SCIPsetSolVal(scip, sol, var, val) );
    }
 
    SCIPfclose(file);
@@ -149,15 +163,24 @@ SCIP_RETCODE readParams(
       const char*           filename            /**< parameter file name, or NULL */
       )
 {
-   if( SCIPfileExists(filename) )
+   if( filename != NULL )
    {
-      SCIPinfoMessage(scip, NULL, "reading user parameter file <%s>\n", filename);
-      SCIP_CALL( SCIPreadParams(scip, filename) );
-   }
-   else
-      SCIPinfoMessage(scip, NULL, "user parameter file <%s> not found - using default parameters\n", filename);
+      if( SCIPfileExists(filename) )
+      {
+         SCIPinfoMessage(scip, NULL, "reading user parameter file <%s>\n", filename);
+         SCIP_CALL( SCIPreadParams(scip, filename) );
 
-   return SCIP_OKAY;
+         return SCIP_OKAY;
+      }
+      else
+      {
+         SCIPinfoMessage(scip, NULL, "user parameter file <%s> not found - using default parameters\n", filename);
+
+         return SCIP_NOFILE;
+      }
+   }
+
+   return SCIP_NOFILE;
 }
 
 /** read problem */
@@ -167,15 +190,11 @@ SCIP_RETCODE readProblem(
       const char*           filename            /**< input file name */
       )
 {
-   /********************
-    * Problem Creation *
-    ********************/
-
    if ( filename != NULL )
    {
       if ( SCIPfileExists(filename) )
       {
-         SCIPinfoMessage(scip, NULL, "read problem <%s> ...\n\n", filename);
+         SCIPinfoMessage(scip, NULL, "reading problem <%s> ...\n\n", filename);
          SCIP_CALL( SCIPreadProb(scip, filename, NULL) );
 
          return SCIP_OKAY;
@@ -206,12 +225,13 @@ SCIP_RETCODE runSCIP(
       return SCIP_ERROR;
    }
 
-   const char* inst_filename = argv[1];
-   const char* param_filename = argv[2];
-   const char* gendisj_filename = argv[3];
-   const char* sol_filename = argv[4];
+   const char* instfilename = argv[1];
+   const char* paramfilename = argv[2];
+   const char* gendisjfilename = argv[3];
+   const char* solfilename = argv[4];
 
    SCIP* scip = NULL;
+   SCIP_FILE* gendisjfile;
 
    /* initialize SCIP */
    SCIP_CALL( SCIPcreate(&scip) );
@@ -224,67 +244,83 @@ SCIP_RETCODE runSCIP(
    SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
    /* read parameter file */
-   SCIP_CALL( readParams(scip, param_filename) );
+   SCIP_CALL( readParams(scip, paramfilename) );
 
    /* read instance file */
-   SCIP_CALL( readProblem(scip, inst_filename) );
+   SCIP_CALL( readProblem(scip, instfilename) );
 
    /* create a hashmap for storing the initial solution */
-   SCIP_HASHMAP* var_values;
-   SCIP_CALL(SCIPhashmapCreate(&var_values, SCIPblkmem(scip), 256));
+   SCIP_HASHMAP* initsolvals;
+   SCIP_CALL( SCIPhashmapCreate(&initsolvals, SCIPblkmem(scip), SCIPgetNVars(scip)) );
 
    /* create an empty solution */
-   SCIP_SOL* solution;
-   SCIP_CALL(SCIPcreateSol(scip, &solution, NULL));
+   SCIP_SOL* initsol;
+   SCIP_CALL( SCIPcreateSol(scip, &initsol, NULL) );
 
    /* read the initial solution file */
-   SCIP_CALL(readSolutionFile(scip, sol_filename, var_values, solution));
-   SCIPinfoMessage(scip, NULL, "Solution file '%s' loaded successfully.\n", sol_filename);
+   SCIP_CALL( readSolutionFile(scip, solfilename, initsolvals, initsol) );
 
    /* open the general disjunctions file */
-   SCIP_FILE* gendisj_file = SCIPfopen(gendisj_filename, "r");
-   if( gendisj_file == NULL )
+   if( gendisjfilename != NULL )
    {
-      SCIPerrorMessage("cannot open file <%s> for reading\n", gendisj_filename);
-      SCIPprintSysError(gendisj_filename);
-      SCIP_CALL(SCIPfree(&scip));
-      return SCIP_NOFILE;
+      if ( SCIPfileExists(gendisjfilename) )
+      {
+         SCIPinfoMessage(scip, NULL, "opening general disjunctions file <%s> ...\n\n", gendisjfilename);
+         gendisjfile = SCIPfopen(gendisjfilename, "r");
+
+         if( gendisjfile == NULL )
+         {
+            SCIPerrorMessage("unable to read general disjunctions file <%s>\n", gendisjfilename);
+            SCIP_CALL( SCIPfree(&scip) );
+            BMScheckEmptyMemory();
+
+            return SCIP_READERROR;
+         }
+      }
+      else
+      {
+         SCIPinfoMessage(scip, NULL, "general disjunctions file <%s> not found.\n", gendisjfilename);
+
+         return SCIP_NOFILE;
+      }
    }
+   else
+      return SCIP_NOFILE;
 
    char* token;
-   int constraint_idx = 0;
-
-   SCIP_Bool error;
-   int lineno;
-
-   error = FALSE;
-   lineno = 0;
+   SCIP_Bool error = FALSE;
+   SCIP_VAR* var;
+   int consid = 0;
+   int noldvarsindisj = 0;
+   int i = 0;
 
    /* read the gendisj file */
-   while( !SCIPfeof(gendisj_file) && !(error) )
+   while( !SCIPfeof(gendisjfile) && !(error) )
    {
       char buffer[SCIP_MAXSTRLEN];
-      SCIP_VAR* var;
-      int num_existing_vars = 0;
+      noldvarsindisj = 0;
 
       /* get next line */
-      if( SCIPfgets(buffer, (int) sizeof(buffer), gendisj_file) == NULL )
+      if( SCIPfgets(buffer, (int) sizeof(buffer), gendisjfile) == NULL )
          break;
-      lineno++;
+
+      i++;
+      SCIPinfoMessage(scip, NULL, "\nreading disjunction <%d>", i);
 
       token = strtok(buffer, " \t\n");
 
-      /* parse the number of existing variables */
+      /* parse the number of existing variables in the disjunction */
       if( token != NULL )
-         num_existing_vars = atoi(token);
+         noldvarsindisj = atoi(token);
+      SCIPinfoMessage(scip, NULL, "\nnumber of existing vars in disjunction <%d> = %d.\n", i, noldvarsindisj);
 
       /* parse the variables */
-      SCIP_VAR* vars[num_existing_vars + 1];
-      SCIP_Real vals[num_existing_vars + 1];
-      SCIP_Real new_var_value = 0.0;
-      int var_count = 0;
+      SCIP_VAR* vars[noldvarsindisj + 1];
+      SCIP_Real vals[noldvarsindisj + 1];
+      SCIP_Real disjvarval = 0.0;
+      int nvarsindisj = 0;
 
-      while( (token = strtok(NULL, " \t\n")) != NULL && (var_count < num_existing_vars) )
+      while( ((token = strtok(NULL, " \t\n")) != NULL) && (nvarsindisj < noldvarsindisj) )
       {
          SCIP_Real coeff = 1.0;
 
@@ -300,66 +336,72 @@ SCIP_RETCODE runSCIP(
          var = SCIPfindVar(scip, varname);
          if (var == NULL)
          {
-            SCIPinfoMessage(scip, NULL, "Variable '%s' not found. Skipping line.\n", varname);
+            SCIPinfoMessage(scip, NULL, "variable '%s' not found. Skipping line.\n", varname);
             free(varname);
+
             goto cleanup_and_continue;
          }
          free(varname);
 
-         vars[var_count] = var;
-         vals[var_count] = -1.0 * coeff;
-         var_count++;
+         vars[nvarsindisj] = var;
+         vals[nvarsindisj] = -1.0 * coeff;
+         nvarsindisj++;
 
-         /* compute the value of the new variable based on the initial solution */
-         void* var_value = SCIPhashmapGetImage(var_values, (void*)var);
-         new_var_value += coeff * (var_value ? (SCIP_Real)(size_t)var_value : 0.0);
+         /* compute the value of the new disjunction variable based on the initial solution */
+         void* varval = SCIPhashmapGetImage(initsolvals, (void*)var);
+         disjvarval += coeff * (varval ? (SCIP_Real)(size_t)varval : 0.0);
       }
 
       /* create a new variable `zdisjN` */
-      char new_var_name[SCIP_MAXSTRLEN];
-      SCIPsnprintf(new_var_name, SCIP_MAXSTRLEN, "zdisj%d", constraint_idx + 1);
-      SCIP_VAR* new_var;
+      char disjvarname[SCIP_MAXSTRLEN];
+      SCIPsnprintf(disjvarname, SCIP_MAXSTRLEN, "zdisj%d", consid + 1);
+      SCIP_VAR* disjvar;
 
+      /* create and add a new auxiliary variable representing the general disjunction */
       // TODO: SCIP_VARTYPE_IMPLINT??
-      SCIP_CALL(SCIPcreateVarBasic(scip, &new_var, new_var_name, -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_INTEGER));
-      SCIP_CALL(SCIPaddVar(scip, new_var));
+      SCIP_CALL( SCIPcreateVarBasic(scip, &disjvar, disjvarname, -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_INTEGER) );
+      SCIP_CALL( SCIPaddVar(scip, disjvar) );
 
-      vars[var_count] = new_var;
-      vals[var_count] = 1.0;
-      var_count++;
+      vars[nvarsindisj] = disjvar;
+      vals[nvarsindisj] = 1.0;
+      nvarsindisj++;
 
       /* create and add the constraint */
-      char cons_name[SCIP_MAXSTRLEN];
-      SCIPsnprintf(cons_name, SCIP_MAXSTRLEN, "c%d", SCIPgetNConss(scip) + 1);
+      char disjconsname[SCIP_MAXSTRLEN];
+      SCIPsnprintf(disjconsname, SCIP_MAXSTRLEN, "c%d", SCIPgetNConss(scip) + 1);
       SCIP_CONS* cons;
 
-      SCIP_CALL(SCIPcreateConsBasicLinear(scip, &cons, cons_name, var_count, vars, vals, 0.0, 0.0));
-      SCIP_CALL(SCIPaddCons(scip, cons));
+      /* create and add a constraint for the general disjunction */
+      SCIP_CALL( SCIPcreateConsBasicLinear(scip, &cons, disjconsname, nvarsindisj, vars, vals, 0.0, 0.0) );
+      SCIP_CALL( SCIPaddCons(scip, cons) );
+
+      /* print the general disjunction */
       SCIP_CALL( SCIPprintCons(scip, cons, NULL) );
+      SCIPinfoMessage(scip, NULL, "\n");
 
       /* release the constraint */
-      SCIP_CALL(SCIPreleaseCons(scip, &cons));
+      SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
-      /* update the new variable's value in the solution */
-      SCIP_CALL(SCIPsetSolVal(scip, solution, new_var, new_var_value));
-      SCIPinfoMessage(scip, NULL, "\nAdded variable: %s = %.2f\n", new_var_name, new_var_value);
+      /* update the disjunction variable's value in the solution */
+      SCIP_CALL( SCIPsetSolVal(scip, initsol, disjvar, disjvarval) );
 
-      constraint_idx++;
+      consid++;
 
 cleanup_and_continue:
       continue;
    }
 
-   SCIPfclose(gendisj_file);
+   SCIPfclose(gendisjfile);
 
    /* pass the initial solution to SCIP */
    SCIP_Bool stored;
-   SCIP_CALL(SCIPaddSolFree(scip, &solution, &stored));
+   SCIP_CALL( SCIPaddSolFree(scip, &initsol, &stored) );
 
    /* solve the problem */
-   SCIP_CALL(SCIPsolve(scip));
+   SCIP_CALL( SCIPsolve(scip) );
 
-   SCIP_CALL(SCIPfree(&scip));
+   /* free SCIP */
+   SCIP_CALL( SCIPfree(&scip) );
    BMScheckEmptyMemory();
 
    return SCIP_OKAY;
@@ -374,7 +416,8 @@ int main(
    SCIP_RETCODE retcode;
 
    retcode = runSCIP(argc, argv);
-   if ( retcode != SCIP_OKAY )
+
+   if( retcode != SCIP_OKAY )
    {
       SCIPprintError(retcode);
       return -1;

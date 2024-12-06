@@ -401,6 +401,12 @@ cleanup_and_continue:
    /* solve the problem */
    SCIP_CALL( SCIPsolve(scip) );
 
+   /* display statistics */
+   SCIPinfoMessage(scip, NULL, "\nStatistics\n");
+   SCIPinfoMessage(scip, NULL, "==========\n\n");
+
+   SCIP_CALL( SCIPprintStatistics(scip, NULL) );
+
    /* free hash map */
    SCIPhashmapFree(&initsolvals);
 

@@ -168,7 +168,10 @@ SCIP_RETCODE readParams(
       if( SCIPfileExists(filename) )
       {
          SCIPinfoMessage(scip, NULL, "reading user parameter file <%s>\n", filename);
+         SCIPinfoMessage(scip, NULL, "===========================\n\n");
          SCIP_CALL( SCIPreadParams(scip, filename) );
+         SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
+         SCIPinfoMessage(scip, NULL, "\n");
 
          return SCIP_OKAY;
       }
@@ -219,15 +222,10 @@ SCIP_RETCODE runSCIP(
       char**                argv                /**< array with shell parameters */
       )
 {
-   if (argc < 5)
-   {
-      printf("Usage: %s <inst_file.mps(.gz)> <param_file.set> <gen_disj_file.txt> <sol_file.sol(.gz)>\n", argv[0]);
-      return SCIP_ERROR;
-   }
-
    char* probname = NULL;
    char* gendisjname = NULL;
    char* settingsname = NULL;
+   char* setfilenametowrite = NULL;
    char* soluname = NULL;
    char* logname = NULL;
    int randomseed;
@@ -361,6 +359,17 @@ SCIP_RETCODE runSCIP(
          }
          i += 2;
       }
+      else if( strcmp(argv[i], "-w") == 0 )
+      {
+         i++;
+         if( i < argc )
+            setfilenametowrite = argv[i];
+         else
+         {
+            printf("missing settings filename for writing after parameter '-w'\n");
+            paramerror = TRUE;
+         }
+      }
       else
       {
          printf("invalid parameter <%s>\n", argv[i]);
@@ -419,6 +428,27 @@ SCIP_RETCODE runSCIP(
       if( settingsname != NULL )
       {
          SCIP_CALL( readParams(scip, settingsname) );
+      }
+
+      /******************
+       * Write settings *
+       ******************/
+
+      if( setfilenametowrite != NULL )
+      {
+         SCIP_RETCODE retcode;
+
+         retcode =  SCIPwriteParams(scip, setfilenametowrite, TRUE, FALSE);
+
+         if( retcode == SCIP_FILECREATEERROR )
+         {
+            SCIPdialogMessage(scip, NULL, "error creating file  <%s>\n", setfilenametowrite);
+         }
+         else
+         {
+            SCIP_CALL( retcode );
+            SCIPdialogMessage(scip, NULL, "saved parameter file <%s>\n", setfilenametowrite);
+         }
       }
 
       /************************************
@@ -668,6 +698,7 @@ cleanup_and_continue:
             "  -o <primref> <dualref> : pass primal and dual objective reference values for validation at the end of the solve\n"
             "  -g <gendisjunctions>: load general disjunctions file, create and add general disjunction constraints\n"
             "  -r <randseed> : nonnegative integer to be used as random seed. "
+            "  -w <setfilenametowrite> : write settings to this file. "
             "Has priority over random seed specified through parameter settings (.set) file\n",
          argv[0]);
       printf("\n");

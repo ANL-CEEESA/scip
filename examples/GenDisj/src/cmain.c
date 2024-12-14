@@ -235,10 +235,12 @@ SCIP_RETCODE runSCIP(
    SCIP_Bool quiet;
    SCIP_Bool paramerror;
    SCIP_Bool onlyversion;
-   SCIP_Real primalreference = SCIP_UNKNOWN;
-   SCIP_Real dualreference = SCIP_UNKNOWN;
+   SCIP_Real primalreference;
+   SCIP_Real dualreference;
+   SCIP_Real duallimit;
    const char* dualrefstring;
    const char* primalrefstring;
+   const char* duallimitstring;
    int i;
 
    quiet = FALSE;
@@ -248,8 +250,12 @@ SCIP_RETCODE runSCIP(
    randomseed = 0;
    permutationseedread = FALSE;
    permutationseed = 0;
+   primalreference = SCIP_UNKNOWN;
+   dualreference = SCIP_UNKNOWN;
+   duallimit = SCIP_UNKNOWN;
    primalrefstring = NULL;
    dualrefstring = NULL;
+   duallimitstring = NULL;
 
    for( i = 1; i < argc; ++i )
    {
@@ -341,6 +347,20 @@ SCIP_RETCODE runSCIP(
          else
          {
             printf("Permutation seed parameter '-p' followed by something that is not an integer\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "-d") == 0 )
+      {
+         /*read the dual bound limit from the command line */
+         i++;
+         if( i < argc )
+         {
+            duallimitstring = argv[i];
+         }
+         else
+         {
+            printf("Dual limit parameter '-d' used incorrectly\n");
             paramerror = TRUE;
          }
       }
@@ -653,6 +673,19 @@ cleanup_and_continue:
          }
          assert(initsol == NULL);
 
+         /* set the dual bound limit, if exists */
+         if( duallimitstring != NULL )
+         {
+            char *endptr;
+            if( ! SCIPparseReal(scip, duallimitstring, &duallimit, &endptr) )
+            {
+               printf("error parsing dual limit value: %s\n", duallimitstring);
+               return SCIP_ERROR;
+            }
+            else
+               SCIP_CALL( SCIPsetRealParam(scip, "limits/dual", duallimit) );
+         }
+
          /* solve the problem */
          SCIP_CALL( SCIPsolve(scip) );
 
@@ -697,8 +730,9 @@ cleanup_and_continue:
             "  -f <problem>  : load and solve problem file\n"
             "  -o <primref> <dualref> : pass primal and dual objective reference values for validation at the end of the solve\n"
             "  -g <gendisjunctions>: load general disjunctions file, create and add general disjunction constraints\n"
+            "  -w <setfilenametowrite> : write settings to this file\n"
+            "  -d <duallimit> : dual bound limit (limits/dual parameter value)\n"
             "  -r <randseed> : nonnegative integer to be used as random seed. "
-            "  -w <setfilenametowrite> : write settings to this file. "
             "Has priority over random seed specified through parameter settings (.set) file\n",
          argv[0]);
       printf("\n");

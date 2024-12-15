@@ -170,7 +170,6 @@ SCIP_RETCODE readParams(
          SCIPinfoMessage(scip, NULL, "reading user parameter file <%s>\n", filename);
          SCIPinfoMessage(scip, NULL, "===========================\n\n");
          SCIP_CALL( SCIPreadParams(scip, filename) );
-         SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
          SCIPinfoMessage(scip, NULL, "\n");
 
          return SCIP_OKAY;
@@ -450,27 +449,6 @@ SCIP_RETCODE runSCIP(
          SCIP_CALL( readParams(scip, settingsname) );
       }
 
-      /******************
-       * Write settings *
-       ******************/
-
-      if( setfilenametowrite != NULL )
-      {
-         SCIP_RETCODE retcode;
-
-         retcode =  SCIPwriteParams(scip, setfilenametowrite, TRUE, FALSE);
-
-         if( retcode == SCIP_FILECREATEERROR )
-         {
-            SCIPdialogMessage(scip, NULL, "error creating file  <%s>\n", setfilenametowrite);
-         }
-         else
-         {
-            SCIP_CALL( retcode );
-            SCIPdialogMessage(scip, NULL, "saved parameter file <%s>\n", setfilenametowrite);
-         }
-      }
-
       /************************************
        * Change random seed, if specified *
        ***********************************/
@@ -683,8 +661,31 @@ cleanup_and_continue:
                return SCIP_ERROR;
             }
             else
+            {
                SCIP_CALL( SCIPsetRealParam(scip, "limits/dual", duallimit) );
+            }
          }
+
+         /* write non-default settings to the log and all settings to a file */
+         SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
+         SCIPinfoMessage(scip, NULL, "\n");
+         if( setfilenametowrite != NULL )
+         {
+            SCIP_RETCODE retcode;
+
+            retcode =  SCIPwriteParams(scip, setfilenametowrite, TRUE, FALSE);
+
+            if( retcode == SCIP_FILECREATEERROR )
+            {
+               SCIPdialogMessage(scip, NULL, "error creating file  <%s>\n", setfilenametowrite);
+            }
+            else
+            {
+               SCIP_CALL( retcode );
+               SCIPdialogMessage(scip, NULL, "saved parameter file <%s>\n", setfilenametowrite);
+            }
+         }
+         SCIPinfoMessage(scip, NULL, "\n");
 
          /* solve the problem */
          SCIP_CALL( SCIPsolve(scip) );

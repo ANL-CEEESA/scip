@@ -227,6 +227,7 @@ SCIP_RETCODE runSCIP(
    char* setfilenametowrite = NULL;
    char* soluname = NULL;
    char* logname = NULL;
+   char* visual_txtfilename = NULL;
    int randomseed;
    int permutationseed;
    SCIP_Bool randomseedread;
@@ -386,6 +387,17 @@ SCIP_RETCODE runSCIP(
          else
          {
             printf("missing settings filename for writing after parameter '-w'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--visual_txtfilename") == 0 )
+      {
+         i++;
+         if( i < argc )
+            visual_txtfilename = argv[i];
+         else
+         {
+            printf("missing visual filename after parameter '--visual_txtfilename'\n");
             paramerror = TRUE;
          }
       }
@@ -666,6 +678,12 @@ cleanup_and_continue:
             }
          }
 
+         /* set the visual text filename, if given */
+         if( visual_txtfilename != NULL )
+         {
+            SCIP_CALL( SCIPsetStringParam(scip, "visual/txtfilename", visual_txtfilename) );
+         }
+
          /* write non-default settings to the log and all settings to a file */
          SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
          SCIPinfoMessage(scip, NULL, "\n");
@@ -733,6 +751,7 @@ cleanup_and_continue:
             "  -g <gendisjunctions>: load general disjunctions file, create and add general disjunction constraints\n"
             "  -w <setfilenametowrite> : write settings to this file\n"
             "  -d <duallimit> : dual bound limit (limits/dual parameter value)\n"
+            "  --visual_txtfilename : filename for visualizing tree in txt format\n"
             "  -r <randseed> : nonnegative integer to be used as random seed. "
             "Has priority over random seed specified through parameter settings (.set) file\n",
          argv[0]);

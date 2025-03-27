@@ -35,6 +35,7 @@
 #include "scip/branch_vanillafullstrong.h"
 #include "scip/pub_branch.h"
 #include "scip/pub_message.h"
+#include "scip/pub_misc.h"
 #include "scip/pub_tree.h"
 #include "scip/pub_var.h"
 #include "scip/scip_branch.h"
@@ -68,6 +69,20 @@
 #define DEFAULT_UPDATEPARENTBOUND  TRUE    /**< should parent lower bound be updated based on strong branching? */
 #define DEFAULT_UPDATECHILDBOUND   TRUE    /**< should child lower bound be updated based on strong branching? */
 
+#define DEFAULT_MAXDEPTHBINS       10      /**< maximum number of bins for dividing the branching depths */
+#define DEFAULT_BRANCHSTATSFILENAME "-"   /**< name of the text output file for branching stats, or "-" if no text
+                                            *   output should be created */
+
+
+/** variable branching stats */
+struct VarBranchStats
+{
+   int nbranchings;
+   int mindepth;
+   int maxdepth;
+   int* depthhist;
+};
+typedef struct VarBranchStats VARBRANCHSTATS;
 
 /** branching rule data */
 struct SCIP_BranchruleData
@@ -88,6 +103,11 @@ struct SCIP_BranchruleData
    int                   npriocands;            /**< number of priority candidates */
    int                   bestcand;              /**< best branching candidate */
    int                   candcapacity;          /**< capacity of candidate arrays */
+   SCIP_HASHMAP*         varstatsmap;
+   int                   depthbins[DEFAULT_MAXDEPTHBINS];
+   int                   ndepthbins;
+   SCIP_Bool             printtoconsole;
+   char*                 branchstatsfilename;
 };
 
 
@@ -337,6 +357,8 @@ SCIP_DECL_BRANCHINIT(branchInitVanillafullstrong)
    assert(branchruledata->candscores == NULL);
    assert(branchruledata->cands == NULL);
 
+   SCIP_CALL( SCIPhashmapCreate(&(branchruledata->varstatsmap), SCIPblkmem(scip), SCIPgetNVars(scip)) );
+
    return SCIP_OKAY;
 }
 
@@ -345,10 +367,75 @@ static
 SCIP_DECL_BRANCHEXIT(branchExitVanillafullstrong)
 {  /*lint --e{715}*/
    SCIP_BRANCHRULEDATA* branchruledata;
+   SCIP_VAR** vars;
+   SCIP_VAR* var;
+   VARBRANCHSTATS* stats;
+   SCIP_HASHMAPENTRY* entry;
+   FILE* file;
+   int nvars;
+   int i;
+   int j;
 
    /* initialize branching rule data */
    branchruledata = SCIPbranchruleGetData(branchrule);
    assert(branchruledata != NULL);
+
+   /* write the branch stats file as needed */
+   file = fopen(branchruledata->branchstatsfilename, "w");
+   if( file != NULL )
+   {
+      nvars = SCIPgetNVars(scip);
+      vars = SCIPgetVars(scip);
+
+      fprintf(file, "varname nbranched mindepth maxdepth");
+      for( i = 0; i <= branchruledata->ndepthbins; i++ )
+         fprintf(file, " depth[%d,%d]", (i == 0 ? 0 : branchruledata->depthbins[i-1] + 1), (i < branchruledata->ndepthbins ? branchruledata->depthbins[i] : INT_MAX));
+      fprintf(file, "\n");
+
+      for( i = 0; i < nvars; i++ )
+      {
+         var = vars[i];
+         stats = (VARBRANCHSTATS*) SCIPhashmapGetImage(branchruledata->varstatsmap, (void*)var);
+
+         if( stats == NULL )
+            continue;
+
+         if( stats->nbranchings > 0 )
+         {
+            fprintf(file, "%s %d %d %d", SCIPvarGetName(var), stats->nbranchings, stats->mindepth, stats->maxdepth);
+            for( j = 0; j <= branchruledata->ndepthbins; j++ )
+               fprintf(file, " %d", stats->depthhist[j]);
+            fprintf(file, "\n");
+
+            if( branchruledata->printtoconsole )
+            {
+               SCIPinfoMessage(scip, NULL, "%s branched %d times [depths %d-%d]:", SCIPvarGetName(var), stats->nbranchings, stats->mindepth, stats->maxdepth);
+               for( j = 0; j <= branchruledata->ndepthbins; j++ )
+                  SCIPinfoMessage(scip, NULL, " depth%d=%d", j, stats->depthhist[j]);
+               SCIPinfoMessage(scip, NULL, "\n");
+            }
+         }
+      }
+   }
+   fclose(file);
+
+   /* free branch stats hashmap and arrays if any */
+   for( i = 0; i < SCIPhashmapGetNEntries(branchruledata->varstatsmap); i++ )
+   {
+      entry = SCIPhashmapGetEntry(branchruledata->varstatsmap, i);
+
+      if( entry == NULL )
+         continue;
+
+      stats = (VARBRANCHSTATS*) SCIPhashmapEntryGetImage(entry);
+
+      /* if stats has been added to the hashmap, it can't be empty */
+      assert(stats->depthhist != NULL);
+
+      SCIPfreeBlockMemoryArray(scip, &stats->depthhist, (branchruledata->ndepthbins + 1));
+      SCIPfreeBlockMemory(scip, &stats);
+   }
+   SCIPhashmapFree(&branchruledata->varstatsmap);
 
    /* free candidate arrays if any */
    if( branchruledata->candscores != NULL )
@@ -473,6 +560,10 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
          SCIP_NODE* upchild;
          SCIP_Bool allcolsinlp;
          SCIP_Bool exactsolve;
+         VARBRANCHSTATS* stats;
+         int depth;
+         int bin;
+         int i;
 
          /* check, if we want to solve the problem exactly, meaning that strong branching information is not useful
           * for cutting off sub problems and improving lower bounds of children
@@ -513,6 +604,31 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpVanillafullstrong)
             }
          }
 
+         /* init stats */
+         stats = (VARBRANCHSTATS*) SCIPhashmapGetImage(branchruledata->varstatsmap, (void*)var);
+         if( stats == NULL )
+         {
+            SCIP_CALL( SCIPallocBlockMemory(scip, &stats) );
+            SCIP_CALL( SCIPallocBlockMemoryArray(scip, &stats->depthhist, branchruledata->ndepthbins + 1) );
+            stats->nbranchings = 0;
+            stats->mindepth = INT_MAX;
+            stats->maxdepth = -1;
+            for( i = 0; i <= branchruledata->ndepthbins; i++ )
+               stats->depthhist[i] = 0;
+
+            SCIP_CALL( SCIPhashmapInsert(branchruledata->varstatsmap, (void*)var, (void*)stats) );
+         }
+         assert(stats != NULL);
+         /* update stats */
+         depth = SCIPgetDepth(scip);
+         stats->nbranchings++;
+         stats->mindepth = MIN(stats->mindepth, depth);
+         stats->maxdepth = MAX(stats->maxdepth, depth);
+         bin = 0;
+         while( bin < branchruledata->ndepthbins && depth > branchruledata->depthbins[bin] )
+            bin++;
+         stats->depthhist[bin]++;
+
          *result = SCIP_BRANCHED;
       }
    }
@@ -532,6 +648,7 @@ SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(
 {
    SCIP_BRANCHRULEDATA* branchruledata;
    SCIP_BRANCHRULE* branchrule;
+   int i;
 
    /* create fullstrong branching rule data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &branchruledata) );
@@ -541,6 +658,8 @@ SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(
    branchruledata->ncands = -1;
    branchruledata->npriocands = -1;
    branchruledata->bestcand = -1;
+   branchruledata->varstatsmap = NULL;
+   branchruledata->branchstatsfilename = NULL;
 
    /* include branching rule */
    SCIP_CALL( SCIPincludeBranchruleBasic(scip, &branchrule, BRANCHRULE_NAME, BRANCHRULE_DESC, BRANCHRULE_PRIORITY,
@@ -556,6 +675,19 @@ SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(
    SCIP_CALL( SCIPsetBranchruleExecLp(scip, branchrule, branchExeclpVanillafullstrong) );
 
    /* fullstrong branching rule parameters */
+   SCIP_CALL( SCIPaddIntParam(scip,
+         "branching/vanillafullstrong/ndepthbins",
+         "number of depth bins while tracking the variable branching statistics (max 10)",
+         &branchruledata->ndepthbins, TRUE, 5, 1, DEFAULT_MAXDEPTHBINS, NULL, NULL) );
+   for( i = 0; i < DEFAULT_MAXDEPTHBINS; i++ )
+   {
+      char paramname[SCIP_MAXSTRLEN];
+      (void) SCIPsnprintf(paramname, SCIP_MAXSTRLEN, "branching/vanillafullstrong/depthbin%d", i+1);
+      SCIP_CALL( SCIPaddIntParam(scip,
+               paramname,
+               "depth upper bound for the current bin",
+               &branchruledata->depthbins[i], TRUE, (i + 1) * 10, 0, INT_MAX, NULL, NULL) );
+   }
    SCIP_CALL( SCIPaddBoolParam(scip,
          "branching/vanillafullstrong/integralcands",
          "should integral variables in the current LP solution be considered as branching candidates?",
@@ -584,6 +716,15 @@ SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(
          "branching/vanillafullstrong/updatechildbound",
          "should child lower bound be updated based on strong branching?",
          &branchruledata->updatechildbound, TRUE, DEFAULT_UPDATECHILDBOUND, NULL, NULL) );
+   SCIP_CALL( SCIPaddBoolParam(scip,
+         "branching/vanillafullstrong/printtoconsole",
+         "should variable branching stats be printed to the console at the end?",
+         &branchruledata->printtoconsole, TRUE, FALSE, NULL, NULL) );
+   SCIP_CALL( SCIPaddStringParam(scip,
+         "branching/vanillafullstrong/branchstatsfilename",
+         "name of the text output file for branching stats, or - if no text output should be created",
+         &branchruledata->branchstatsfilename, TRUE, DEFAULT_BRANCHSTATSFILENAME,
+         NULL, NULL) );
 
    return SCIP_OKAY;
 }

@@ -347,12 +347,10 @@ SCIP_DECL_BRANCHFREE(branchFreeVanillafullstrong)
 static
 SCIP_DECL_BRANCHINIT(branchInitVanillafullstrong)
 {  /*lint --e{715}*/
-#ifndef NDEBUG
    SCIP_BRANCHRULEDATA* branchruledata;
 
    /* initialize branching rule data */
    branchruledata = SCIPbranchruleGetData(branchrule);
-#endif
    assert(branchruledata != NULL);
    assert(branchruledata->candscores == NULL);
    assert(branchruledata->cands == NULL);

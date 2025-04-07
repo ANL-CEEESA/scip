@@ -685,62 +685,6 @@ cleanup_and_continue:
             SCIPfclose(gendisjfile);
          }
 
-         if( initsol != NULL )
-         {
-            /* pass the initial solution to SCIP */
-            SCIP_Bool stored;
-            SCIP_CALL( SCIPaddSolFree(scip, &initsol, &stored) );
-         }
-         assert(initsol == NULL);
-
-         /* set the dual bound limit, if exists */
-         if( duallimitstring != NULL )
-         {
-            char *endptr;
-            if( ! SCIPparseReal(scip, duallimitstring, &duallimit, &endptr) )
-            {
-               printf("error parsing dual limit value: %s\n", duallimitstring);
-               return SCIP_ERROR;
-            }
-            else
-            {
-               SCIP_CALL( SCIPsetRealParam(scip, "limits/dual", duallimit) );
-            }
-         }
-
-         /* set the visual text filename, if given */
-         if( visualfilenametowrite != NULL )
-         {
-            SCIP_CALL( SCIPsetStringParam(scip, "visual/txtfilename", visualfilenametowrite) );
-         }
-
-         /* set the branch stats text filename, if given */
-         if( branchstatsfilenametowrite != NULL )
-         {
-            SCIP_CALL( SCIPsetStringParam(scip, "branching/vanillafullstrong/branchstatsfilename", branchstatsfilenametowrite) );
-         }
-
-         /* write non-default settings to the log and all settings to a file */
-         SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
-         SCIPinfoMessage(scip, NULL, "\n");
-         if( setfilenametowrite != NULL )
-         {
-            SCIP_RETCODE retcode;
-
-            retcode =  SCIPwriteParams(scip, setfilenametowrite, TRUE, FALSE);
-
-            if( retcode == SCIP_FILECREATEERROR )
-            {
-               SCIPdialogMessage(scip, NULL, "error creating file  <%s>\n", setfilenametowrite);
-            }
-            else
-            {
-               SCIP_CALL( retcode );
-               SCIPdialogMessage(scip, NULL, "saved parameter file <%s>\n", setfilenametowrite);
-            }
-         }
-         SCIPinfoMessage(scip, NULL, "\n");
-
          /* add random (non-continuous) variable pairs as general disjunctions for branching if needed */
          if( randpairgendisj )
          {
@@ -751,7 +695,6 @@ cleanup_and_continue:
             int varpairidxsize = 100;
             int varpairidxlen = 0;
             int nvarpairs = 20;
-            int nvars;
             int nbinvars;
             int nintvars;
             int idx1;
@@ -759,7 +702,8 @@ cleanup_and_continue:
             unsigned int randseedforrandgen = 42;
 
             SCIP_CALL( SCIPallocBufferArray(scip, &varpairidxs, varpairidxsize) );
-            SCIP_CALL( SCIPgetVarsData(scip, &vars, &nvars, &nbinvars, &nintvars, NULL, NULL) );
+            nbinvars = SCIPgetNBinVars(scip);
+            nintvars = SCIPgetNIntVars(scip);
             SCIPcreateRandom(scip, &randgen, randseedforrandgen, TRUE);
 
             if( nbinvars + nintvars > 0 )
@@ -801,6 +745,13 @@ cleanup_and_continue:
 
                for( int k = 0; k < (varpairidxlen/2); k++ )
                {
+                  /* obtain vars array here. If obtained outside the loop, it may become invalid due to a possible
+                   * memory reallocation while adding zdisj variables */
+                  /* NOTE: since the zdisj variables are added as integers, they are always added at the end of vars
+                   * array. So, the varpairidxs array of indices still remain valid even though it was generated outside
+                   * this loop. */
+                  vars = SCIPgetVars(scip);
+
                   /* create and add a new variable `zdisjN` */
                   char disjvarname[SCIP_MAXSTRLEN];
                   SCIPsnprintf(disjvarname, SCIP_MAXSTRLEN, "zdisj%d", k + 1);
@@ -878,6 +829,62 @@ cleanup_and_continue:
             SCIPfreeRandom(scip, &randgen);
             SCIPfreeBufferArray(scip, &varpairidxs);
          }
+
+         if( initsol != NULL )
+         {
+            /* pass the initial solution to SCIP */
+            SCIP_Bool stored;
+            SCIP_CALL( SCIPaddSolFree(scip, &initsol, &stored) );
+         }
+         assert(initsol == NULL);
+
+         /* set the dual bound limit, if exists */
+         if( duallimitstring != NULL )
+         {
+            char *endptr;
+            if( ! SCIPparseReal(scip, duallimitstring, &duallimit, &endptr) )
+            {
+               printf("error parsing dual limit value: %s\n", duallimitstring);
+               return SCIP_ERROR;
+            }
+            else
+            {
+               SCIP_CALL( SCIPsetRealParam(scip, "limits/dual", duallimit) );
+            }
+         }
+
+         /* set the visual text filename, if given */
+         if( visualfilenametowrite != NULL )
+         {
+            SCIP_CALL( SCIPsetStringParam(scip, "visual/txtfilename", visualfilenametowrite) );
+         }
+
+         /* set the branch stats text filename, if given */
+         if( branchstatsfilenametowrite != NULL )
+         {
+            SCIP_CALL( SCIPsetStringParam(scip, "branching/vanillafullstrong/branchstatsfilename", branchstatsfilenametowrite) );
+         }
+
+         /* write non-default settings to the log and all settings to a file */
+         SCIP_CALL( SCIPwriteParams(scip, NULL, FALSE, TRUE) );
+         SCIPinfoMessage(scip, NULL, "\n");
+         if( setfilenametowrite != NULL )
+         {
+            SCIP_RETCODE retcode;
+
+            retcode =  SCIPwriteParams(scip, setfilenametowrite, TRUE, FALSE);
+
+            if( retcode == SCIP_FILECREATEERROR )
+            {
+               SCIPdialogMessage(scip, NULL, "error creating file  <%s>\n", setfilenametowrite);
+            }
+            else
+            {
+               SCIP_CALL( retcode );
+               SCIPdialogMessage(scip, NULL, "saved parameter file <%s>\n", setfilenametowrite);
+            }
+         }
+         SCIPinfoMessage(scip, NULL, "\n");
 
          /* solve the problem */
          SCIP_CALL( SCIPsolve(scip) );

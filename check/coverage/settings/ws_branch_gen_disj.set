@@ -1,6 +1,32 @@
+# parameters that are usually set from the check_cluster scripts
+limits/time = 7200
+limits/memory = 20000
+memory/savefac = 1
+misc/avoidmemout = FALSE
+lp/threads = 1
+timing/clocktype = 1
+display/freq = 10000
+
+# parameters specific to this setting
+nodeselection/bfs/stdpriority = 100000000
+
 lp/disablecutoff = 1
 
 visual/displb = TRUE
+
+# vanillafullstrong parameters for branching stats
+branching/vanillafullstrong/ndepthbins = 10
+branching/vanillafullstrong/depthbin1 = 10
+branching/vanillafullstrong/depthbin2 = 20
+branching/vanillafullstrong/depthbin3 = 30
+branching/vanillafullstrong/depthbin4 = 40
+branching/vanillafullstrong/depthbin5 = 50
+branching/vanillafullstrong/depthbin6 = 60
+branching/vanillafullstrong/depthbin7 = 70
+branching/vanillafullstrong/depthbin8 = 80
+branching/vanillafullstrong/depthbin9 = 90
+branching/vanillafullstrong/depthbin10 = 100
+branching/vanillafullstrong/printtoconsole = FALSE
 
 # priority of branching rule <vanillafullstrong>
 # [type: int, advanced: FALSE, range: [-536870912,536870911], default: -2000]
@@ -21,6 +47,9 @@ branching/vanillafullstrong/scoreall = TRUE
 # should strong branching scores be collected ?
 # [type: bool, advanced: TRUE, default: False]
 branching/vanillafullstrong/collectscores = FALSE
+
+branching/vanillafullstrong/updateparentbound = TRUE
+branching/vanillafullstrong/updatechildbound = TRUE
 
 conflict/enable = FALSE
 
@@ -69,8 +98,6 @@ heuristics/veclendiving/freq = -1
 heuristics/zirounding/freq = -1
 
 nlp/disable = TRUE
-
-nodeselection/bfs/stdpriority = 100000000
 
 presolving/milp/maxrounds = 0
 presolving/trivial/maxrounds = 0
@@ -147,6 +174,7 @@ separating/aggregation/freq = -1
 separating/clique/freq = -1
 separating/zerohalf/freq = -1
 separating/mcf/freq = -1
+separating/multilinear/freq = -1
 separating/flowcover/freq = -1
 separating/strongcg/freq = -1
 separating/gomorymi/freq = -1

@@ -236,6 +236,7 @@ SCIP_RETCODE runSCIP(
    SCIP_Bool quiet;
    SCIP_Bool paramerror;
    SCIP_Bool onlyversion;
+   SCIP_Bool randpairgendisj;
    SCIP_Real primalreference;
    SCIP_Real dualreference;
    SCIP_Real duallimit;
@@ -251,6 +252,7 @@ SCIP_RETCODE runSCIP(
    randomseed = 0;
    permutationseedread = FALSE;
    permutationseed = 0;
+   randpairgendisj = FALSE;
    primalreference = SCIP_UNKNOWN;
    dualreference = SCIP_UNKNOWN;
    duallimit = SCIP_UNKNOWN;
@@ -410,6 +412,22 @@ SCIP_RETCODE runSCIP(
          else
          {
             printf("missing branch stats filename after parameter '--branchstatsfilenametowrite'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--randpairgendisj") == 0 )
+      {
+         i++;
+         if( i < argc && isdigit(argv[i][0]) )
+         {
+            if( atoi(argv[i]) == 0 )
+               randpairgendisj = FALSE;
+            else
+               randpairgendisj = TRUE;
+         }
+         else
+         {
+            printf("Value following the parameter '--randpairgendisj' is not an integer (0: FALSE, non-zero: TRUE)\n");
             paramerror = TRUE;
          }
       }
@@ -723,6 +741,144 @@ cleanup_and_continue:
          }
          SCIPinfoMessage(scip, NULL, "\n");
 
+         /* add random (non-continuous) variable pairs as general disjunctions for branching if needed */
+         if( randpairgendisj )
+         {
+            SCIP_RANDNUMGEN* randgen;
+            SCIP_VAR** vars;
+            SCIP_Real randreal;
+            int* varpairidxs;
+            int varpairidxsize = 100;
+            int varpairidxlen = 0;
+            int nvarpairs = 20;
+            int nvars;
+            int nbinvars;
+            int nintvars;
+            int idx1;
+            int idx2;
+            unsigned int randseedforrandgen = 42;
+
+            SCIP_CALL( SCIPallocBufferArray(scip, &varpairidxs, varpairidxsize) );
+            SCIP_CALL( SCIPgetVarsData(scip, &vars, &nvars, &nbinvars, &nintvars, NULL, NULL) );
+            SCIPcreateRandom(scip, &randgen, randseedforrandgen, TRUE);
+
+            if( nbinvars + nintvars > 0 )
+            {
+               if( nbinvars + nintvars <= 7 )
+               {
+                  /* generate all possible (maximum of 21) pairs of variables as general disjunctions */
+                  for( int k = 0; k < nbinvars + nintvars - 1; k++ )
+                  {
+                     for( int j = k + 1; j < nbinvars + nintvars; j++ )
+                     {
+                        /* add the indices to varpairidxs */
+                        varpairidxs[varpairidxlen] = k;
+                        varpairidxs[varpairidxlen + 1] = j;
+                        varpairidxlen += 2;
+                     }
+                  }
+               }
+               else
+               {
+                  /* generate nvarpairs random pairs of variables as general disjunctions */
+                  // TODO: eliminate the possibility of having a redundant pair
+                  for( int k = 0; k < nvarpairs; k++ )
+                  {
+                     /* generate a random pair of indices for vars array */
+                     idx1 = SCIPrandomGetInt(randgen, 0, nbinvars + nintvars - 1);
+                     idx2 = SCIPrandomGetInt(randgen, 0, nbinvars + nintvars - 1);
+                     while( idx2 == idx1 )
+                     {
+                        idx2 = SCIPrandomGetInt(randgen, 0, nbinvars + nintvars - 1);
+                     }
+
+                     /* add the indices to varpairidxs */
+                     varpairidxs[varpairidxlen] = idx1;
+                     varpairidxs[varpairidxlen + 1] = idx2;
+                     varpairidxlen += 2;
+                  }
+               }
+
+               for( int k = 0; k < (varpairidxlen/2); k++ )
+               {
+                  /* create and add a new variable `zdisjN` */
+                  char disjvarname[SCIP_MAXSTRLEN];
+                  SCIPsnprintf(disjvarname, SCIP_MAXSTRLEN, "zdisj%d", k + 1);
+                  SCIP_VAR* disjvar;
+                  SCIP_Real disjvarval = 0.0;
+                  SCIP_Real coeff1 = 0.0;
+                  SCIP_Real coeff2 = 0.0;
+                  SCIP_CALL( SCIPcreateVarBasic(scip, &disjvar, disjvarname, -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_INTEGER) ); // TODO: SCIP_VARTYPE_IMPLINT??
+                  SCIP_CALL( SCIPaddVar(scip, disjvar) );
+
+                  /* create an empty constraint */
+                  char disjconsname[SCIP_MAXSTRLEN];
+                  SCIPsnprintf(disjconsname, SCIP_MAXSTRLEN, "c%d", SCIPgetNConss(scip) + 1);
+                  SCIP_CONS* disjcons;
+                  SCIP_CALL( SCIPcreateConsBasicLinear(scip, &disjcons, disjconsname, 0, NULL, NULL, 0.0, 0.0) );
+
+                  /* add the new variable and its coefficient to the new constraint */
+                  SCIP_CALL( SCIPaddCoefLinear(scip, disjcons, disjvar, 1.0) );
+
+                  /* add the two variables correspondong to the indices in varpairidxs */
+                  randreal = SCIPrandomGetReal(randgen, 0, 1);
+                  if( randreal < 0.5 )
+                  {
+                     SCIP_CALL( SCIPaddCoefLinear(scip, disjcons, vars[varpairidxs[2*k]], -1.0) );
+                     coeff1 = 1.0;
+                  }
+                  else
+                  {
+                     SCIP_CALL( SCIPaddCoefLinear(scip, disjcons, vars[varpairidxs[2*k]], 1.0) );
+                     coeff1 = -1.0;
+                  }
+                  randreal = SCIPrandomGetReal(randgen, 0, 1);
+                  if( randreal < 0.5 )
+                  {
+                     SCIP_CALL( SCIPaddCoefLinear(scip, disjcons, vars[varpairidxs[2*k + 1]], -1.0) );
+                     coeff2 = 1.0;
+                  }
+                  else
+                  {
+                     SCIP_CALL( SCIPaddCoefLinear(scip, disjcons, vars[varpairidxs[2*k + 1]], 1.0) );
+                     coeff2 = -1.0;
+                  }
+
+                  if( initsolvals != NULL )
+                  {
+                     /* compute the value of the new disjunction variable based on the initial solution */
+                     void* varval = SCIPhashmapGetImage(initsolvals, (void*)vars[varpairidxs[2*k]]);
+                     disjvarval += coeff1 * (varval ? (SCIP_Real)(size_t)varval : 0.0);
+
+                     varval = SCIPhashmapGetImage(initsolvals, (void*)vars[varpairidxs[2*k + 1]]);
+                     disjvarval += coeff2 * (varval ? (SCIP_Real)(size_t)varval : 0.0);
+                  }
+
+                  /* add the constraint */
+                  SCIP_CALL( SCIPaddCons(scip, disjcons) );
+
+                  /* print the general disjunction */
+                  /*
+                  SCIP_CALL( SCIPprintCons(scip, disjcons, NULL) );
+                  SCIPinfoMessage(scip, NULL, "\n");
+                  */
+
+                  if( initsol != NULL )
+                  {
+                     /* update the disjunction variable's value in the solution */
+                     SCIP_CALL( SCIPsetSolVal(scip, initsol, disjvar, disjvarval) );
+                  }
+
+                  /* release the variable and constraint */
+                  SCIP_CALL( SCIPreleaseVar(scip, &disjvar) );
+                  SCIP_CALL( SCIPreleaseCons(scip, &disjcons) );
+               }
+            }
+
+            SCIPfreeRandom(scip, &randgen);
+            SCIPfreeBufferArray(scip, &varpairidxs);
+         }
+
          /* solve the problem */
          SCIP_CALL( SCIPsolve(scip) );
 
@@ -771,6 +927,7 @@ cleanup_and_continue:
             "  -d <duallimit> : dual bound limit (limits/dual parameter value)\n"
             "  --visualfilenametowrite : filename for visualizing tree in txt format\n"
             "  --branchstatsfilenametowrite : filename for writing branch stats in txt format\n"
+            "  --randpairgendisj : whether to generate random variable pairs as general disjunctions for branching (0: FALSE, non-zero: TRUE)\n"
             "  -r <randseed> : nonnegative integer to be used as random seed. "
             "Has priority over random seed specified through parameter settings (.set) file\n",
          argv[0]);

@@ -745,13 +745,6 @@ cleanup_and_continue:
 
                for( int k = 0; k < (varpairidxlen/2); k++ )
                {
-                  /* obtain vars array here. If obtained outside the loop, it may become invalid due to a possible
-                   * memory reallocation while adding zdisj variables */
-                  /* NOTE: since the zdisj variables are added as integers, they are always added at the end of vars
-                   * array. So, the varpairidxs array of indices still remain valid even though it was generated outside
-                   * this loop. */
-                  vars = SCIPgetVars(scip);
-
                   /* create and add a new variable `zdisjN` */
                   char disjvarname[SCIP_MAXSTRLEN];
                   SCIPsnprintf(disjvarname, SCIP_MAXSTRLEN, "zdisj%d", k + 1);
@@ -761,6 +754,13 @@ cleanup_and_continue:
                   SCIP_Real coeff2 = 0.0;
                   SCIP_CALL( SCIPcreateVarBasic(scip, &disjvar, disjvarname, -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_INTEGER) ); // TODO: SCIP_VARTYPE_IMPLINT??
                   SCIP_CALL( SCIPaddVar(scip, disjvar) );
+
+                  /* obtain vars array here. If obtained outside the loop, it may become invalid due to a possible
+                   * memory reallocation while adding zdisj variables */
+                  /* NOTE: since the zdisj variables are added as integers, they are always added at the end of vars
+                   * array. So, the varpairidxs array of indices still remain valid even though it was generated outside
+                   * this loop. */
+                  vars = SCIPgetVars(scip);
 
                   /* create an empty constraint */
                   char disjconsname[SCIP_MAXSTRLEN];

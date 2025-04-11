@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -832,7 +832,7 @@ SCIP_DECL_READERREAD(readerReadCip)
             cipinput.haserror = TRUE;
             goto TERMINATE;
          }
-         SCIP_CALL(retcode);
+         SCIP_CALL( retcode );
 
          break;
       case CIP_FIXEDVARS:
@@ -843,7 +843,7 @@ SCIP_DECL_READERREAD(readerReadCip)
             cipinput.haserror = TRUE;
             goto TERMINATE;
          }
-         SCIP_CALL(retcode);
+         SCIP_CALL( retcode );
 
          break;
       case CIP_CONSTRAINTS:
@@ -854,7 +854,7 @@ SCIP_DECL_READERREAD(readerReadCip)
             cipinput.haserror = TRUE;
             goto TERMINATE;
          }
-         SCIP_CALL(retcode);
+         SCIP_CALL( retcode );
 
          break;
       default:
@@ -866,14 +866,7 @@ SCIP_DECL_READERREAD(readerReadCip)
 
    if( !SCIPisZero(scip, objoffset) && !cipinput.haserror )
    {
-      SCIP_VAR* objoffsetvar;
-
-      objoffset *= objscale;
-      SCIP_CALL( SCIPcreateVar(scip, &objoffsetvar, "objoffset", objoffset, objoffset, 1.0, SCIP_VARTYPE_CONTINUOUS,
-         TRUE, TRUE, NULL, NULL, NULL, NULL, NULL) );
-      SCIP_CALL( SCIPaddVar(scip, objoffsetvar) );
-      SCIP_CALL( SCIPreleaseVar(scip, &objoffsetvar) );
-      SCIPdebugMsg(scip, "added variables <objoffset> for objective offset of <%g>\n", objoffset);
+      SCIP_CALL( SCIPaddOrigObjoffset(scip, objscale * objoffset) );
    }
 
    if( cipinput.section != CIP_END && !cipinput.haserror )

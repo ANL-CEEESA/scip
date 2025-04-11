@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -30,6 +30,7 @@
 
 #include "scip/heuristics.h"
 #include "scip/cons_linear.h"
+#include "scip/scip_exact.h"
 #include "scip/scipdefplugins.h"
 #include "scip/stat.h"
 #include "scip/struct_scip.h"
@@ -226,8 +227,8 @@ SCIP_RETCODE SCIPperformGenericDivingAlgorithm(
    SCIP_Bool             nodeinfeasible,     /**< is the current node known to be infeasible? */
    SCIP_Longint          iterlim,            /**< nonnegative iteration limit for the LP solves, or -1 for dynamic setting */
    int                   nodelimit,          /**< nonnegative probing node limit or -1 if no limit should be used */
-   SCIP_Real             lpresolvedomchgquot, /**< percentage of immediate domain changes during probing to trigger LP resolve or -1
-                                               *   if diveset specific default should be used */
+   SCIP_Real             lpresolvedomchgquot,/**< percentage of immediate domain changes during probing to trigger LP resolve or -1
+                                              *   if diveset specific default should be used */
    SCIP_DIVECONTEXT      divecontext         /**< context for diving statistics */
    )
 {
@@ -374,7 +375,8 @@ SCIP_RETCODE SCIPperformGenericDivingAlgorithm(
       searchbound = SCIPceil(scip, searchbound);
 
    /* calculate the maximal diving depth: 10 * min{number of integer variables, max depth}*/
-   maxdivedepth = SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip);
+   maxdivedepth = SCIPgetNVars(scip) - SCIPgetNContVars(scip) - SCIPgetNContImplVars(scip);
+   assert(maxdivedepth >= 0);
    if ( sos1conshdlr != NULL )
       maxdivedepth += SCIPgetNSOS1Vars(sos1conshdlr);
    maxdivedepth = MIN(maxdivedepth, maxdepth);
@@ -814,7 +816,7 @@ SCIP_RETCODE SCIPperformGenericDivingAlgorithm(
 
          SCIP_CALL( SCIPgetLPBranchCands(scip, &lpcands, &lpcandssol, NULL, &nlpcands, NULL, NULL) );
 
-         SCIPdebugMsg(scip, "   -> lpsolstat=%d, objval=%g/%g, nfrac=%d\n", SCIPgetLPSolstat(scip), SCIPgetLPObjval(scip), searchbound, nlpcands);
+         SCIPdebugMsg(scip, "   -> lpsolstat=%d, objval=%g/%g, nlpcands=%d\n", SCIPgetLPSolstat(scip), SCIPgetLPObjval(scip), searchbound, nlpcands);
          /* distribute the gain equally over all variables that we rounded since the last LP */
          gain = SCIPgetLPObjval(scip) - lastlpobjval;
          gain = MAX(gain, 0.0);
@@ -971,10 +973,24 @@ SCIP_RETCODE SCIPcopyLargeNeighborhoodSearch(
 
    if( uselprows )
    {
+      SCIP_Bool msghdlrquiet;
       char probname[SCIP_MAXSTRLEN];
 
       /* copy all plugins */
       SCIP_CALL( SCIPincludeDefaultPlugins(subscip) );
+
+      /* store the quiet state of the message handler and explicitly suppress output when copying parameters */
+      msghdlrquiet = SCIPmessagehdlrIsQuiet(subscip->messagehdlr);
+      SCIPsetMessagehdlrQuiet(subscip, TRUE);
+      SCIP_CALL( SCIPcopyParamSettings(sourcescip, subscip) );
+
+      /* even when solving exactly, sub-SCIP heuristics should be run in floating-point mode, since the exactsol constraint
+       * handler is in place to perform a final repair step
+       */
+      SCIP_CALL( SCIPenableExactSolving(subscip, FALSE) );
+
+      /* restore original quiet state */
+      SCIPsetMessagehdlrQuiet(subscip, msghdlrquiet);
 
       /* set name to the original problem name and possibly add a suffix */
       (void) SCIPsnprintf(probname, SCIP_MAXSTRLEN, "%s_%s", SCIPgetProbName(sourcescip), suffix);
@@ -984,9 +1000,6 @@ SCIP_RETCODE SCIPcopyLargeNeighborhoodSearch(
 
       /* copy all variables */
       SCIP_CALL( SCIPcopyVars(sourcescip, subscip, varmap, NULL, fixedvars, fixedvals, nfixedvars, TRUE) );
-
-      /* copy parameter settings */
-      SCIP_CALL( SCIPcopyParamSettings(sourcescip, subscip) );
 
       /* create linear constraints from LP rows of the source problem */
       SCIP_CALL( createRows(sourcescip, subscip, varmap) );
@@ -1082,7 +1095,7 @@ SCIP_RETCODE SCIPaddTrustregionNeighborhoodConstraint(
       else
          consvals[nconsvars] = 1.0;
       consvars[nconsvars] = subvars[i];
-      assert(SCIPvarGetType(consvars[nconsvars]) == SCIP_VARTYPE_BINARY);
+      assert(SCIPvarGetType(consvars[nconsvars]) == SCIP_VARTYPE_BINARY && !SCIPvarIsImpliedIntegral(consvars[nconsvars]));
       ++nconsvars;
    }
 

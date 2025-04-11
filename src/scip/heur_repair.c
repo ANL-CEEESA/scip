@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -49,8 +49,10 @@
 #include "scip/pub_misc_sort.h"
 #include "scip/pub_var.h"
 #include "scip/scip_branch.h"
+#include "scip/scip_certificate.h"
 #include "scip/scip_cons.h"
 #include "scip/scip_copy.h"
+#include "scip/scip_exact.h"
 #include "scip/scip_general.h"
 #include "scip/scip_heur.h"
 #include "scip/scip_lp.h"
@@ -567,6 +569,11 @@ SCIP_RETCODE applyRepair(
    SCIP_CALL( SCIPincludeDefaultPlugins(subscip) );
    SCIP_CALL( SCIPcopyParamSettings(scip, subscip) );
 
+   /* even when solving exactly, sub-SCIP heuristics should be run in floating-point mode, since the exactsol constraint
+    * handler is in place to perform a final repair step
+    */
+   SCIP_CALL( SCIPenableExactSolving(subscip, FALSE) );
+
    /* use inference branching */
    if( SCIPfindBranchrule(subscip, "inference") != NULL && !SCIPisParamFixed(subscip, "branching/inference/priority") )
    {
@@ -577,6 +584,7 @@ SCIP_RETCODE applyRepair(
    (void) SCIPsnprintf(probname, SCIP_MAXSTRLEN, "%s_repairsub", SCIPgetProbName(scip));
 
    SCIP_CALL( SCIPcreateProb(subscip, probname, NULL, NULL, NULL, NULL, NULL, NULL, NULL) );
+   assert(!SCIPisExact(subscip));
 
    /* a trivial feasible solution can be constructed if violations are modeled with slack variables */
    if( heurdata->useslackvars )
@@ -613,6 +621,7 @@ SCIP_RETCODE applyRepair(
       SCIP_Real objval;
       SCIP_Real value;
       SCIP_VARTYPE vartype;
+      SCIP_Bool varimplint;
       char varname[SCIP_MAXSTRLEN];
       char slackvarname[SCIP_MAXSTRLEN];
       char consvarname[SCIP_MAXSTRLEN];
@@ -626,6 +635,7 @@ SCIP_RETCODE applyRepair(
       uborig = SCIPvarGetUbGlobal(vars[i]);
       value = SCIPgetSolVal(scip, sol, vars[i]);
       vartype = SCIPvarGetType(vars[i]);
+      varimplint = SCIPvarIsImpliedIntegral(vars[i]);
 
       nviolatedrows[i] = 0;
 
@@ -666,7 +676,7 @@ SCIP_RETCODE applyRepair(
       }
 
       /* if a binary variable is out of bound, generalize it to an integer variable */
-      if( !SCIPisFeasZero(scip, varslack) && SCIP_VARTYPE_BINARY == vartype )
+      if( !SCIPisFeasZero(scip, varslack) && vartype == SCIP_VARTYPE_BINARY && !varimplint )
       {
          vartype = SCIP_VARTYPE_INTEGER;
       }
@@ -693,11 +703,11 @@ SCIP_RETCODE applyRepair(
          /* initialize and add an artificial slack variable */
          if( heurdata->useobjfactor )
          {
-            SCIP_CALL( SCIPcreateVarBasic(subscip, &newvar, slackvarname, 0.0, 1.0, 1.0, SCIP_VARTYPE_CONTINUOUS));
+            SCIP_CALL( SCIPcreateVarBasic(subscip, &newvar, slackvarname, 0.0, 1.0, 1.0, SCIP_VARTYPE_CONTINUOUS) );
          }
          else
          {
-            SCIP_CALL( SCIPcreateVarBasic(subscip, &newvar, slackvarname, 0.0, 1.0, 1.0, SCIP_VARTYPE_BINARY));
+            SCIP_CALL( SCIPcreateVarBasic(subscip, &newvar, slackvarname, 0.0, 1.0, 1.0, SCIP_VARTYPE_BINARY) );
          }
          SCIP_CALL( SCIPaddVar(subscip, newvar) );
 
@@ -727,7 +737,7 @@ SCIP_RETCODE applyRepair(
          heurdata->nviolatedvars++;
       }
 #endif
-      if( SCIP_VARTYPE_BINARY == vartype || SCIP_VARTYPE_INTEGER == vartype )
+      if( vartype != SCIP_VARTYPE_CONTINUOUS && !varimplint )
       {
          ndiscvars++;
       }
@@ -886,8 +896,7 @@ SCIP_RETCODE applyRepair(
 
          SCIP_CALL( tryFixVar(scip, subscip, sol, potential, slacks, vars[permutation[i]], subvars[permutation[i]], inftycounter, heurdata, &fixed) );
 
-         if( fixed && (SCIP_VARTYPE_BINARY == SCIPvarGetType(subvars[permutation[i]])
-            || SCIP_VARTYPE_INTEGER == SCIPvarGetType(subvars[permutation[i]])) )
+         if( fixed && SCIPvarIsNonimpliedIntegral(subvars[permutation[i]]) )
          {
             nfixeddiscvars++;
          }
@@ -1032,10 +1041,23 @@ TERMINATE:
    return SCIP_OKAY;
 }
 
-
 /*
  * Callback methods of primal heuristic
  */
+
+/** copy method for primal heuristic plugins (called when SCIP copies plugins) */
+static
+SCIP_DECL_HEURCOPY(heurCopyRepair)
+{  /*lint --e{715}*/
+   assert(scip != NULL);
+   assert(heur != NULL);
+   assert(strcmp(SCIPheurGetName(heur), HEUR_NAME) == 0);
+
+   /* call inclusion method of primal heuristic */
+   SCIP_CALL( SCIPincludeHeurRepair(scip) );
+
+   return SCIP_OKAY;
+}
 
 /** destructor of primal heuristic to free user data (called when SCIP is exiting) */
 static
@@ -1215,8 +1237,11 @@ SCIP_DECL_HEUREXEC(heurExecRepair)
 
       SCIP_CALL( SCIPconstructLP(scip, &cutoff) );
 
-      /* manually cut off the node if the LP construction detected infeasibility (heuristics cannot return such a result) */
-      if( cutoff )
+      /* manually cut off the node if the LP construction detected infeasibility (heuristics cannot return such a
+       * result); the cutoff result is safe to use in exact solving mode, but we don't have enough information to
+       * give a certificate for the cutoff
+       */
+      if( cutoff && !SCIPisCertified(scip) )
       {
          SCIP_CALL( SCIPcutoffNode(scip, SCIPgetCurrentNode(scip)) );
          return SCIP_OKAY;
@@ -1306,7 +1331,11 @@ SCIP_RETCODE SCIPincludeHeurRepair(
    assert(heur != NULL);
    assert(heurdata != NULL);
 
+   /* primal heuristic is safe to use in exact solving mode */
+   SCIPheurMarkExact(heur);
+
    /* set non fundamental callbacks via setter functions */
+   SCIP_CALL( SCIPsetHeurCopy(scip, heur, heurCopyRepair) );
    SCIP_CALL( SCIPsetHeurFree(scip, heur, heurFreeRepair) );
    SCIP_CALL( SCIPsetHeurInit(scip, heur, heurInitRepair) );
    SCIP_CALL( SCIPsetHeurExit(scip, heur, heurExitRepair) );

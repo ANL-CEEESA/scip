@@ -12,8 +12,8 @@
 #endif
 
 #include "lpi/lpi.h"
-#include "nlpi/exprinterpret.h"
-#include "nlpi/nlpi.h"
+#include "scip/exprinterpret.h"
+#include "scip/nlpi.h"
 #include "scip/benders.h"
 #include "scip/benderscut.h"
 #include "scip/branch.h"
@@ -30,6 +30,7 @@
 #include "scip/cuts.h"
 #include "scip/debug.h"
 #include "scip/def.h"
+#include "scip/datatree.h"
 #include "scip/dialog.h"
 #include "scip/dialog_default.h"
 #include "scip/disp.h"
@@ -85,6 +86,7 @@
 #include "scip/scip_cons.h"
 #include "scip/scip_copy.h"
 #include "scip/scip_cut.h"
+#include "scip/scip_datatree.h"
 #include "scip/scip_datastructures.h"
 #include "scip/scip_debug.h"
 #include "scip/scip_dialog.h"
@@ -127,6 +129,7 @@
 #include "scip/pub_conflict.h"
 #include "scip/pub_cons.h"
 #include "scip/pub_cutpool.h"
+#include "scip/pub_datatree.h"
 #include "scip/pub_dialog.h"
 #include "scip/pub_disp.h"
 #include "scip/pub_event.h"
@@ -151,7 +154,7 @@
 #include "scip/pub_table.h"
 #include "scip/pub_tree.h"
 #include "scip/pub_var.h"
-#include "nlpi/pub_expr.h"
+#include "scip/pub_expr.h"
 
 
 /* In debug mode, we include the SCIP's structure in scip.c, such that no one can access

@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -46,13 +46,18 @@
 #include "scip/type_prob.h"
 #include "scip/type_primal.h"
 #include "scip/type_tree.h"
+#include "scip/type_rational.h"
 #include "scip/type_reopt.h"
 #include "scip/type_branch.h"
 #include "scip/type_cons.h"
 #include "scip/type_conflictstore.h"
 #include "scip/type_message.h"
+#include "scip/type_misc.h"
+#include "scip/type_datatree.h"
 
+#ifdef NDEBUG
 #include "scip/struct_prob.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -158,8 +163,8 @@ SCIP_RETCODE SCIPprobTransform(
    SCIP_REOPT*           reopt,              /**< reoptimization data structure */
    SCIP_LP*              lp,                 /**< current LP data */
    SCIP_BRANCHCAND*      branchcand,         /**< branching candidate storage */
-   SCIP_EVENTFILTER*     eventfilter,        /**< event filter for global (not variable dependent) events */
    SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
+   SCIP_EVENTFILTER*     eventfilter,        /**< global event filter */
    SCIP_CONFLICTSTORE*   conflictstore,      /**< conflict store */
    SCIP_PROB**           target              /**< pointer to target problem data structure */
    );
@@ -216,8 +221,8 @@ SCIP_RETCODE SCIPprobAddVar(
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_LP*              lp,                 /**< current LP data */
    SCIP_BRANCHCAND*      branchcand,         /**< branching candidate storage */
-   SCIP_EVENTFILTER*     eventfilter,        /**< event filter for global (not variable dependent) events */
    SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
+   SCIP_EVENTFILTER*     eventfilter,        /**< global event filter */
    SCIP_VAR*             var                 /**< variable to add */
    );
 
@@ -253,8 +258,22 @@ SCIP_RETCODE SCIPprobChgVarType(
    SCIP_BRANCHCAND*      branchcand,         /**< branching candidate storage */
    SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
    SCIP_CLIQUETABLE*     cliquetable,        /**< clique table data structure */
-   SCIP_VAR*             var,                /**< variable to add */
+   SCIP_VAR*             var,                /**< variable to change type of */
    SCIP_VARTYPE          vartype             /**< new type of variable */
+   );
+
+/** changes the implied integral type of a variable in the problem */
+SCIP_RETCODE SCIPprobChgVarImplType(
+   SCIP_PROB*            prob,               /**< problem data */
+   BMS_BLKMEM*           blkmem,             /**< block memory */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_PRIMAL*          primal,             /**< primal data */
+   SCIP_LP*              lp,                 /**< current LP data */
+   SCIP_BRANCHCAND*      branchcand,         /**< branching candidate storage */
+   SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
+   SCIP_CLIQUETABLE*     cliquetable,        /**< clique table data structure */
+   SCIP_VAR*             var,                /**< variable to change implied integral type of */
+   SCIP_IMPLINTTYPE      impltype            /**< new implied integral type of variable */
    );
 
 /** informs problem, that the given loose problem variable changed its status */
@@ -320,6 +339,12 @@ void SCIPprobAddObjoffset(
    SCIP_Real             addval              /**< value to add to objective offset */
    );
 
+/** adds value to objective offset */
+void SCIPprobAddObjoffsetExact(
+   SCIP_PROB*            prob,               /**< problem data */
+   SCIP_RATIONAL*        addval              /**< value to add to objective offset */
+   );
+
 /** sets the dual bound on objective function */
 void SCIPprobSetDualbound(
    SCIP_PROB*            prob,               /**< problem data */
@@ -350,8 +375,8 @@ SCIP_RETCODE SCIPprobCheckObjIntegral(
    SCIP_TREE*            tree,               /**< branch and bound tree */
    SCIP_REOPT*           reopt,              /**< reoptimization data structure */
    SCIP_LP*              lp,                 /**< current LP data */
-   SCIP_EVENTFILTER*     eventfilter,        /**< event filter for global (not variable dependent) events */
-   SCIP_EVENTQUEUE*      eventqueue          /**< event queue */
+   SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
+   SCIP_EVENTFILTER*     eventfilter         /**< global event filter */
    );
 
 /** if possible, scales objective function such that it is integral with gcd = 1 */
@@ -365,8 +390,8 @@ SCIP_RETCODE SCIPprobScaleObj(
    SCIP_TREE*            tree,               /**< branch and bound tree */
    SCIP_REOPT*           reopt,              /**< reoptimization data structure */
    SCIP_LP*              lp,                 /**< current LP data */
-   SCIP_EVENTFILTER*     eventfilter,        /**< event filter for global (not variable dependent) events */
-   SCIP_EVENTQUEUE*      eventqueue          /**< event queue */
+   SCIP_EVENTQUEUE*      eventqueue,         /**< event queue */
+   SCIP_EVENTFILTER*     eventfilter         /**< global event filter */
    );
 
 /** remembers the current solution as root solution in the problem variables */
@@ -419,18 +444,6 @@ SCIP_RETCODE SCIPprobExitSolve(
 SCIP_RETCODE SCIPprobSetName(
    SCIP_PROB*            prob,               /**< problem data */
    const char*           name                /**< name to be set */
-   );
-
-/** returns the number of implicit binary variables, meaning variable of vartype != SCIP_VARTYPE_BINARY and !=
- *  SCIP_VARTYPE_CONTINUOUS but with global bounds [0,1]
- *
- *  @note this number needs to be computed, because it cannot be update like the othe counters for binary and interger
- *        variables, each time the variable type changes(, we would need to update this counter each time a global bound
- *        changes), even at the end of presolving this cannot be computed, because some variable can change to an
- *        implicit binary status
- */
-int SCIPprobGetNImplBinVars(
-   SCIP_PROB*            prob                /**< problem data */
    );
 
 /** returns the number of variables with non-zero objective coefficient */
@@ -488,12 +501,30 @@ SCIP_Real SCIPprobExternObjval(
    SCIP_Real             objval              /**< internal objective value */
    );
 
+/** computes the exact external value of the given internal objective value */
+void SCIPprobExternObjvalExact(
+   SCIP_PROB*            transprob,          /**< tranformed problem data */
+   SCIP_PROB*            origprob,           /**< original problem data */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_RATIONAL*        objval,             /**< internal objective value */
+   SCIP_RATIONAL*        objvalext           /**< store external objective value */
+   );
+
 /** returns the internal value of the given external objective value */
 SCIP_Real SCIPprobInternObjval(
    SCIP_PROB*            transprob,          /**< tranformed problem data */
    SCIP_PROB*            origprob,           /**< original problem data */
    SCIP_SET*             set,                /**< global SCIP settings */
    SCIP_Real             objval              /**< external objective value */
+   );
+
+/** returns the internal value of the given external objective value */
+void SCIPprobInternObjvalExact(
+   SCIP_PROB*            transprob,          /**< tranformed problem data */
+   SCIP_PROB*            origprob,           /**< original problem data */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_RATIONAL*        objval,             /**< internal objective value */
+   SCIP_RATIONAL*        objvalint           /**< store internal objective value */
    );
 
 /** returns variable of the problem with given name */
@@ -523,6 +554,14 @@ void SCIPprobPrintStatistics(
    FILE*                 file                /**< output file (or NULL for standard output) */
    );
 
+
+/** collects problem statistics in a SCIP_DATATREE object */
+SCIP_RETCODE SCIPprobCollectStatistics(
+   SCIP_PROB*            prob,               /**< problem data */
+   BMS_BLKMEM*           blkmem,             /**< block memory */
+   SCIP_SET*             set,                /**< global SCIP settings */
+   SCIP_DATATREE*        datatree            /**< data tree */
+   );
 
 #ifndef NDEBUG
 
@@ -590,7 +629,7 @@ int SCIPprobGetNIntVars(
    SCIP_PROB*            prob                /**< problem data */
    );
 
-/** gets number of implicit integer problem variables */
+/** gets number of implied integral problem variables of any type */
 int SCIPprobGetNImplVars(
    SCIP_PROB*            prob                /**< problem data */
    );
@@ -605,8 +644,43 @@ SCIP_VAR** SCIPprobGetVars(
    SCIP_PROB*            prob                /**< problem data */
    );
 
+/** gets number of fixed variables */
+int SCIPprobGetNFixedVars(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets fixed variables */
+SCIP_VAR** SCIPprobGetFixedVars(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets number of variables existing when problem solving started */
+int SCIPprobGetStartNVars(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
 /** gets number of problem constraints */
 int SCIPprobGetNConss(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets problem constraints */
+SCIP_CONS** SCIPprobGetConss(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets maximum number of constraints existing at the same time */
+int SCIPprobGetMaxNConss(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets number of constraints existing when problem solving started */
+int SCIPprobGetStartNConss(
+   SCIP_PROB*            prob                /**< problem data */
+   );
+
+/** gets the objective sense */
+SCIP_OBJSENSE SCIPprobGetObjsense(
    SCIP_PROB*            prob                /**< problem data */
    );
 
@@ -649,16 +723,22 @@ void SCIPprobEnableConsCompression(
 #define SCIPprobGetNVars(prob)          ((prob)->nvars)
 #define SCIPprobGetNBinVars(prob)       ((prob)->nbinvars)
 #define SCIPprobGetNIntVars(prob)       ((prob)->nintvars)
-#define SCIPprobGetNImplVars(prob)      ((prob)->nimplvars)
+#define SCIPprobGetNImplVars(prob)      ((prob)->nbinimplvars + (prob)->nintimplvars + (prob)->ncontimplvars)
 #define SCIPprobGetNContVars(prob)      ((prob)->ncontvars)
 #define SCIPprobGetVars(prob)           ((prob)->vars)
+#define SCIPprobGetNFixedVars(prob)     ((prob)->nfixedvars)
+#define SCIPprobGetFixedVars(prob)      ((prob)->fixedvars)
+#define SCIPprobGetStartNVars(prob)     ((prob)->startnvars)
 #define SCIPprobGetNConss(prob)         ((prob)->nconss)
+#define SCIPprobGetConss(prob)          ((prob)->conss)
+#define SCIPprobGetMaxNConss(prob)      ((prob)->maxnconss)
+#define SCIPprobGetStartNConss(prob)    ((prob)->startnconss)
+#define SCIPprobGetObjsense(prob)       ((prob)->objsense)
 #define SCIPprobGetObjoffset(prob)      ((prob)->objoffset)
 #define SCIPprobGetObjscale(prob)       ((prob)->objscale)
 #define SCIPprobIsConsCompressionEnabled(prob)  ((prob)->conscompression)
 #define SCIPprobEnableConsCompression(prob)  ((prob)->conscompression = TRUE)
 #endif
-
 
 #ifdef __cplusplus
 }

@@ -123,7 +123,11 @@ set(settings_fastMIP
     "enable_treeprofile_regression_forest"
     "../../../scripts/trainEstimation/periodic_report"
   )
-
+set(settings_MIPEX
+    "exact-default"
+    "exact-exactlp"
+    "exact-projshift"
+    )
 set(settings_MINLP
     "default"
     "undercover1"
@@ -242,7 +246,7 @@ set(instances_consecSolve
   "instances/MINLP/meanvarxsc.lp\;14.3692321148754"
   "instances/SOS/sparse2.lp\;26.0"
   "instances/Cardinality/atm_5_25_1.cip\;+1.40606905557936e+05"
-#  "instances/Stochastic/4node1.smps\;480.9"
+  "instances/Stochastic/4node1.smps\;480.9"
   "instances/SAT/bart10.shuffled.cnf\;0"
   )
 
@@ -276,6 +280,7 @@ set(instances_MIP
     "instances/MIP/Negated.cip\;1"
     "instances/MIP/p0033.osil\;3089"
     "instances/MIP/p0548.mps\;8691"
+    "instances/MIP/piperout-impl.cip\;0"
     "instances/MIP/rgn.mps\;82.19999924"
     "instances/MIP/stein27.fzn\;18"
     "instances/MIP/stein27_inf.lp\;+infinity"
@@ -305,12 +310,41 @@ set(instances_fastMIP
 #
 # add additional ZIMPL instances if the configuration uses ZIMPL
 #
-if(ZIMPL AND ZIMPL_FOUND)
-list(APPEND
-    instances_Indicator
-    "instances/Indicator/indicatortest.zpl\;-2"
-    "instances/Indicator/mcf64-4-1.zpl\;10"
+if(SCIP_WITH_ZIMPL)
+    list(APPEND
+        instances_Indicator
+        "instances/Indicator/indicatortest.zpl\;-2"
+        "instances/Indicator/mcf64-4-1.zpl\;10"
     )
+#
+# this instance was part of the original coverage tests. However, it causes
+# a significant overhead without providing relevant benefit.
+#
+#list(APPEND
+#    instances_MIP
+#    "instances/MIP/rocII_2_11.zpl\;+4.61527698552400e+00"
+#    )
+endif()
+
+# exact ip instances
+if(SCIP_WITH_EXACTSOLVE)
+    set(instances_MIPEX
+        "instances/MIP/enigma.mps\;0"
+        "instances/MIPEX/flugpl_rational.mps\;1201500"
+        "instances/MIP/stein27_inf.lp\;+infinity"
+        "instances/MIP/Side.lp\;2"
+        "instances/MIPEX/Side-coeftest.lp\;2"
+        "instances/PseudoBoolean/normalized-t2001.13queen13.1111218308.opb\;+infinity"
+    )
+    if(SCIP_WITH_ZIMPL)
+        list(APPEND
+            instances_MIPEX
+            "instances/MIPEX/egout.zpl\;568.1007"
+            "instances/MIPEX/misc03.zpl\;3360"
+            "instances/MIPEX/rgn.zpl\;2054999981/25000000"
+            "instances/MIPEX/stein27.zpl\;18"
+        )
+    endif()
 endif()
 
 #
@@ -349,7 +383,7 @@ set(instances_PB
     "instances/PseudoBoolean/normalized-90_rounds_0_errors.opb\;0"
     "instances/PseudoBoolean/normalized-t2001.13queen13.1111218308.opb\;+infinity"
     "instances/PseudoBoolean/normalized-t2001.13queen13.1110976730--soft-33-100-0.wbo\;4"
-    "instances/PseudoBoolean/wheel010.lap.opb.pre.cip\;25"
+    "instances/PseudoBoolean/wheel010.lap.opb.pre.cip\;16"
     )
 
 #
@@ -417,7 +451,7 @@ set(instances_Symmetry_A
 
 set(instances_Symmetry_B
     "instances/MIP/stein27_inf.lp\;+infinity"
-    "instances/PseudoBoolean/wheel010.lap.opb.pre.cip\;25"
+    "instances/PseudoBoolean/wheel010.lap.opb.pre.cip\;16"
     )
 
 #
@@ -472,6 +506,8 @@ set(instances_Objlim
 # Pairs of instances and settings
 #
 set(pairs_Issue
+    "instances/Issue/591_1.cip\;0\;reduced_constraints"
+    "instances/Issue/591_2.cip\;0\;reduced_and"
     "instances/Issue/3047.lp\;20000\;dualinfer"
     "instances/Issue/3132.lp\;0\;default"
     "instances/Issue/3499.lp\;11460\;closeobj"
@@ -494,6 +530,7 @@ set(pairs_Issue
     "instances/Issue/3688.cip\;131882\;reduced_presolving"
     "instances/Issue/3691.cip\;1.862908\;presolvingnolinear"
     "instances/Issue/3693.cip\;7812672.2316\;default"
+    "instances/Issue/3700.cip\;0\;default"
     "instances/Issue/3719.cip\;0\;presolving_off"
     "instances/Issue/3722.cip\;1200008400.00755\;default"
     "instances/Issue/3723.cip\;0\;default"
@@ -501,6 +538,11 @@ set(pairs_Issue
     "instances/Issue/3728.cip\;0\;reduced_presolving_heuristics"
     "instances/Issue/3746.cip\;0\;seed_1"
     "instances/Issue/3752.cip\;28066\;default"
+    "instances/Issue/3787.lp\;1\;default"
+    "instances/Issue/3832.cip\;0\;default"
+    # Test currently not working since problems with the relative check for presolved problems appear: https://git.zib.de/integer/scip/-/issues/3819
+    # "instances/Issue/3842.cip\;-16812.7692740365\;default"
+    "instances/Issue/3870.cip\;5133546551065818\;default"
 )
 
 #
@@ -589,18 +631,17 @@ macro(add_instancetests instances settings prefix)
             #
             if(NOT ((${setting} STREQUAL "tolerance") AND (${basename} STREQUAL "blend2.mps") AND (${LPS} STREQUAL "xprs")))
             if(NOT ((${setting} STREQUAL "default") AND (${basename} STREQUAL "pltexpA4_6.smps") AND (${LPS} STREQUAL "xprs")))
-            if(NOT ((${setting} STREQUAL "convertinttobin_mostinf") AND (${basename} STREQUAL "bell5.mps") AND (${LPS} STREQUAL "cpx")))
+            if(NOT ((${setting} STREQUAL "lns_epsgreedy_vanilla") AND (${basename} STREQUAL "blend2.mps") AND (${LPS} STREQUAL "grb")))
             add_test(NAME ${prefix}-${setting}-${basename}
                     COMMAND $<TARGET_FILE:scip> -f ${PROJECT_SOURCE_DIR}/check/${path} -s ${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set -o ${optval} ${optval}
                     )
             set_tests_properties(${prefix}-${setting}-${basename}
                                 PROPERTIES
                                     PASS_REGULAR_EXPRESSION "Validation         : Success"
-                                    FAIL_REGULAR_EXPRESSION "ERROR"
-                                    FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                    FAIL_REGULAR_EXPRESSION "ERROR|user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
                                     DEPENDS scip-build
                                 )
-            endif()  # integrality violated in multiaggregated integer variable, #3724 (LPS=cpx, MIP-convertinttobin_mostinf-bell5.mps)
+            endif()  # Gurobi gets stuck in LP solve, #2833
             endif()  # LP Error: Xpress returned 120, #3724 (LPS=xprs, Stochastic-default-pltexpA4_6.smps)
             endif()  # Xpress does not keep feasibility tolerance setting, #3640
         endforeach(setting)
@@ -633,8 +674,7 @@ if((${TEST_BENDERSQP} AND (NOT ${LPS} STREQUAL "msk" )) OR (NOT ${prefix} STREQU
             set_tests_properties(${prefix}-${setting}-${basename}
                                 PROPERTIES
                                     PASS_REGULAR_EXPRESSION "Validation         : Success"
-                                    FAIL_REGULAR_EXPRESSION "ERROR"
-                                    FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                    FAIL_REGULAR_EXPRESSION "ERROR|user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
                                     DEPENDS scip-build
                                 )
             endif()  # separation does not converge, #3724 (LPS=grb, BendersQP-benders-qp-classical_30_0.mps)
@@ -649,6 +689,7 @@ macro(add_pairtests pairs prefix)
 #
     foreach(pair ${${pairs}})
         split_pair(pair)
+        if(NOT ((${basename} STREQUAL "3727.cip") AND (${LPS} STREQUAL "xprs")))
         #
         # add the test
         #
@@ -658,10 +699,10 @@ macro(add_pairtests pairs prefix)
         set_tests_properties(${prefix}-${setting}-${basename}
                             PROPERTIES
                                 PASS_REGULAR_EXPRESSION "Validation         : Success"
-                                FAIL_REGULAR_EXPRESSION "ERROR"
-                                FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                FAIL_REGULAR_EXPRESSION "ERROR|user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
                                 DEPENDS scip-build
                             )
+        endif() # LP error 11 from Xpress (but SCIP recovers), #3724
     endforeach(pair)
 endmacro(add_pairtests)
 
@@ -746,8 +787,7 @@ foreach(instance ${instances_Objlim})
     set_tests_properties(Objlim-${setting}-${basename}
         PROPERTIES
             PASS_REGULAR_EXPRESSION "Validation         : Success"
-            FAIL_REGULAR_EXPRESSION "ERROR"
-            FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+            FAIL_REGULAR_EXPRESSION "ERROR|user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
             DEPENDS scip-build
         )
 endforeach(instance)
@@ -808,7 +848,7 @@ foreach(instance ${instances_MIP_write})
 endforeach(instance)
 
 #
-# test writing and reading from and to different file extensions for MIP
+# test writing and reading from and to different file extensions for MIP (only without original objective offset)
 #
 foreach(instance ${instances_MIP})
     split_instance(instance)
@@ -841,7 +881,7 @@ foreach(instance ${instances_MIP})
 endforeach(instance)
 
 #
-# test writing and reading from and to different file extensions for PB
+# test writing and reading from and to different file extensions for PB (only without original objective offset)
 #
 foreach(instance ${instances_PB})
     split_instance(instance)
@@ -872,7 +912,6 @@ if(NOT ${TPI} STREQUAL "none")
         # configure the batch file for this test by substituting placeholders in the in.file
         #
         configure_file(interactiveshell/concurrentsolve.bat.in interactiveshell/concurrentsolve-${basename}.bat)
-        if(NOT ((${basename} STREQUAL "egout.mps") AND (${TPI} STREQUAL "tny")))
         add_test(NAME MIP-concurrentsolve-${basename}
                 COMMAND $<TARGET_FILE:scip> -b ${PROJECT_BINARY_DIR}/check/interactiveshell/concurrentsolve-${basename}.bat
                 )
@@ -882,8 +921,25 @@ if(NOT ${TPI} STREQUAL "none")
                                 FAIL_REGULAR_EXPRESSION "ERROR"
                                 DEPENDS scip-build
                             )
-        endif() # Timeout (deadlock?), #3724 (MIP-concurrentsolve-egout.mps, LPS=spx bugfix)
     endforeach(instance)
+    #
+    # repeat the test with egout several times, because when it used to fail, it wasn't doing this deterministically
+    #
+    set(path "instances/MIP/egout.mps")
+    set(optval "568.1007")
+    get_filename_component(basename ${path} NAME)
+    foreach(runid RANGE 9)
+       configure_file(interactiveshell/concurrentsolve.bat.in interactiveshell/concurrentsolve-egout-repeat${runid}.bat)
+       add_test(NAME MIP-concurrentsolve-egout-repeat${runid}
+                COMMAND $<TARGET_FILE:scip> -b ${PROJECT_BINARY_DIR}/check/interactiveshell/concurrentsolve-egout-repeat${runid}.bat
+               )
+       set_tests_properties(MIP-concurrentsolve-egout-repeat${runid}
+                            PROPERTIES
+                               PASS_REGULAR_EXPRESSION "Validation         : Success"
+                               FAIL_REGULAR_EXPRESSION "ERROR"
+                               DEPENDS scip-build
+                           )
+    endforeach()
 endif()
 
 #
@@ -907,10 +963,8 @@ foreach(instance ${instances_MIP})
                 )
         set_tests_properties(MIP-mipstart-${basename}
                             PROPERTIES
-                                PASS_REGULAR_EXPRESSION "Validation         : Success"
+                                PASS_REGULAR_EXPRESSION "Validation         : Success.*Validation         : Success"
                                 FAIL_REGULAR_EXPRESSION "ERROR"
-                                # the MIP start instances are validated twice.
-                                FAIL_REGULAR_EXPRESSION "Validation         : Fail"
                                 DEPENDS scip-build
                             )
     endif()
@@ -957,8 +1011,7 @@ foreach(testname reopt-chg-obj-stein27 reopt-chg-obj-flugpl reopt-chg-obj-1-Full
                 )
         set_tests_properties(${testname}-${setting} PROPERTIES
                                             PASS_REGULAR_EXPRESSION "Validation         : Success"
-                                            FAIL_REGULAR_EXPRESSION "ERROR"
-                                            FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                            FAIL_REGULAR_EXPRESSION "ERROR|user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
                                             DEPENDS scip-build)
         endforeach()
 endforeach()
@@ -1159,4 +1212,89 @@ if (UNIX)
 endif (UNIX)
 endif()
 
+if(SCIP_WITH_EXACTSOLVE)
+    #
+    # first test without certification
+    #
+    foreach(instance ${instances_MIPEX})
+        split_instance(instance)
+        #
+        # loop over all settings
+        #
+        foreach(setting ${settings_MIPEX})
+            #
+            # treat the instance as a tuple (list) of two values
+            #
+            add_test(NAME MIPEX-${setting}-${basename}
+                    COMMAND $<TARGET_FILE:scip> -c "set load ${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set
+                        read ${PROJECT_SOURCE_DIR}/check/${path}
+                        o validatesolve ${optval} ${optval} q"
+                    )
+            set_tests_properties(MIPEX-${setting}-${basename}
+                                PROPERTIES
+                                    PASS_REGULAR_EXPRESSION "Validation         : Success"
+                                    FAIL_REGULAR_EXPRESSION "WARNING: unknown parameter"
+                                    FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                    DEPENDS scip-build
+                                )
+        endforeach(setting)
+    endforeach(instance ${instances_MIPEX})
+    #
+    # second test with certification, even if VIPR is not available, because it leads to SCIP running differently
+    #
+    foreach(instance ${instances_MIPEX})
+        split_instance(instance)
+        #
+        # loop over all settings
+        #
+        foreach(setting ${settings_MIPEX})
+            #
+            # treat the instance as a tuple (list) of two values
+            #
+            add_test(NAME MIPEX-${setting}-${basename}-certified
+                    COMMAND $<TARGET_FILE:scip> -c "set certificate filename ${basename}.${setting}.vipr
+                        set load ${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set
+                        read ${PROJECT_SOURCE_DIR}/check/${path}
+                        o validatesolve ${optval} ${optval} q"
+                    )
+            set_tests_properties(MIPEX-${setting}-${basename}-certified
+                                PROPERTIES
+                                    PASS_REGULAR_EXPRESSION "Validation         : Success"
+                                    FAIL_REGULAR_EXPRESSION "WARNING: unknown parameter"
+                                    FAIL_REGULAR_EXPRESSION "user parameter file <${PROJECT_SOURCE_DIR}/check/coverage/settings/${setting}.set> not found"
+                                    DEPENDS scip-build
+                                )
+
+            if(VIPRCOMP AND VIPRCHK)
+               add_test(NAME MIPEX-${setting}-${basename}-viprcomp
+                     COMMAND ${VIPRCOMP} ${basename}.${setting}.vipr)
+               set_tests_properties(MIPEX-${setting}-${basename}-viprcomp
+                                 PROPERTIES
+                                 DEPENDS MIPEX-${setting}-${basename}-certified
+                                 PASS_REGULAR_EXPRESSION "Completion of File successful!"
+                                 FAIL_REGULAR_EXPRESSION "Error"
+                                 FAIL_REGULAR_EXPRESSION "Failed")
+
+               add_test(NAME MIPEX-${setting}-${basename}-vipr
+                     COMMAND ${VIPRCHK} ${basename}.${setting}_complete.vipr)
+               set_tests_properties(MIPEX-${setting}-${basename}-vipr
+                                 PROPERTIES
+                                 DEPENDS MIPEX-${setting}-${basename}-viprcomp
+                                 PASS_REGULAR_EXPRESSION "Successfully verified;Infeasibility verified"
+                                 FAIL_REGULAR_EXPRESSION "Error"
+                                 FAIL_REGULAR_EXPRESSION "Failed")
+
+               add_test(NAME MIPEX-${setting}-${basename}-vipr_ori
+                     COMMAND ${VIPRCHK} ${basename}.${setting}.vipr_ori)
+               set_tests_properties(MIPEX-${setting}-${basename}-vipr_ori
+                                 PROPERTIES
+                                 DEPENDS MIPEX-${setting}-${basename}-certified
+                                 PASS_REGULAR_EXPRESSION "Successfully checked solution for feasibility"
+                                 FAIL_REGULAR_EXPRESSION "Error"
+                                 FAIL_REGULAR_EXPRESSION "Failed")
+            endif()
+
+        endforeach(setting)
+    endforeach(instance ${instances_MIPEX})
+endif()
 set_tests_properties(FastMIP-presolving_off-bell5.mps PROPERTIES TIMEOUT 3000)

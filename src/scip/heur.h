@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -256,6 +256,11 @@ void SCIPheurSetExitsol(
 void SCIPheurEnableOrDisableClocks(
    SCIP_HEUR*            heur,               /**< the heuristic for which all clocks should be enabled or disabled */
    SCIP_Bool             enable              /**< should the clocks of the heuristic be enabled? */
+   );
+
+/** returns TRUE if the heuristic is safe to be executed in exact solving mode */
+SCIP_Bool SCIPheurIsExact(
+   SCIP_HEUR*            heur                /**< primal heuristic */
    );
 
 #ifdef __cplusplus

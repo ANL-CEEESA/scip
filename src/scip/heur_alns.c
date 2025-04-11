@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -216,12 +216,13 @@
 #define TABLE_EARLIEST_STAGE_NEIGHBORHOOD        SCIP_STAGE_TRANSFORMED /**< output of the statistics table is only printed from this stage onwards */
 
 /** reward types of ALNS */
-enum RewardType {
-   REWARDTYPE_TOTAL,                         /**< combination of the other rewards */
-   REWARDTYPE_BESTSOL,                       /**< 1, if a new solution was found, 0 otherwise */
-   REWARDTYPE_CLOSEDGAP,                           /**< 0 if no solution was found, closed gap otherwise */
-   REWARDTYPE_NOSOLPENALTY,                  /**< 1 if a solution was found, otherwise between 0 and 1 depending on the effort spent  */
-   NREWARDTYPES
+enum RewardType /*lint !e753*/
+{
+   REWARDTYPE_TOTAL        = 0,         /**< combination of the other rewards */
+   REWARDTYPE_BESTSOL      = 1,         /**< 1, if a new solution was found, 0 otherwise */
+   REWARDTYPE_CLOSEDGAP    = 2,         /**< 0 if no solution was found, closed gap otherwise */
+   REWARDTYPE_NOSOLPENALTY = 3,         /**< 1 if a solution was found, otherwise between 0 and 1 depending on the effort spent  */
+   NREWARDTYPES            = 4
 };
 
 /*
@@ -1957,7 +1958,7 @@ SCIP_RETCODE setLimits(
    assert(solvelimits->nodelimit >= solvelimits->stallnodes);
 
    SCIP_CALL( SCIPsetLongintParam(subscip, "limits/nodes", solvelimits->nodelimit) );
-   SCIP_CALL( SCIPsetLongintParam(subscip, "limits/stallnodes", solvelimits->stallnodes));
+   SCIP_CALL( SCIPsetLongintParam(subscip, "limits/stallnodes", solvelimits->stallnodes) );
    SCIP_CALL( SCIPsetRealParam(subscip, "limits/time", solvelimits->timelimit) );
    SCIP_CALL( SCIPsetRealParam(subscip, "limits/memory", solvelimits->memorylimit) );
 
@@ -2274,7 +2275,7 @@ SCIP_RETCODE setupSubScip(
       /* if the objective changed between the source and the target SCIP, encode the cutoff as a constraint */
       if( ! objchgd )
       {
-         SCIP_CALL(SCIPsetObjlimit(subscip, cutoff));
+         SCIP_CALL( SCIPsetObjlimit(subscip, cutoff) );
 
          SCIPdebugMsg(scip, "Cutoff added as Objective Limit\n");
       }
@@ -3418,7 +3419,7 @@ void computeIntegerVariableBoundsDins(
    lbglobal = SCIPvarGetLbGlobal(var);
    ubglobal = SCIPvarGetUbGlobal(var);
 
-   assert(SCIPvarGetType(var) == SCIP_VARTYPE_INTEGER);
+   assert(SCIPvarGetType(var) == SCIP_VARTYPE_INTEGER && !SCIPvarIsImpliedIntegral(var));
    /* get the current LP solution for each variable */
    lpsol = SCIPvarGetLPSol(var);
 
@@ -4031,6 +4032,9 @@ SCIP_RETCODE SCIPincludeHeurAlns(
 
    assert(heur != NULL);
 
+   /* primal heuristic is safe to use in exact solving mode */
+   SCIPheurMarkExact(heur);
+
    /* include all neighborhoods */
    SCIP_CALL( includeNeighborhoods(scip, heurdata) );
 
@@ -4194,7 +4198,7 @@ SCIP_RETCODE SCIPincludeHeurAlns(
 
    assert(SCIPfindTable(scip, TABLE_NAME_NEIGHBORHOOD) == NULL);
    SCIP_CALL( SCIPincludeTable(scip, TABLE_NAME_NEIGHBORHOOD, TABLE_DESC_NEIGHBORHOOD, TRUE,
-         NULL, NULL, NULL, NULL, NULL, NULL, tableOutputNeighborhood,
+         NULL, NULL, NULL, NULL, NULL, NULL, tableOutputNeighborhood, NULL,
          NULL, TABLE_POSITION_NEIGHBORHOOD, TABLE_EARLIEST_STAGE_NEIGHBORHOOD) );
 
    return SCIP_OKAY;

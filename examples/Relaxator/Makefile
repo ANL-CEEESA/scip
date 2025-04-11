@@ -3,7 +3,7 @@
 #*                  This file is part of the program and library             *
 #*         SCIP --- Solving Constraint Integer Programs                      *
 #*                                                                           *
-#*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      *
+#*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      *
 #*                                                                           *
 #*  Licensed under the Apache License, Version 2.0 (the "License");          *
 #*  you may not use this file except in compliance with the License.         *
@@ -101,6 +101,19 @@ lint:		$(MAINSRC)
 			$(LINT) -I$(SCIPDIR) lint/main-gcc.lnt +os\(lint.out\) -u -zero \
 			$(FLAGS) -UNDEBUG -USCIP_WITH_READLINE -USCIP_ROUNDING_FE $$i; \
 			done'
+
+.PHONY: pclint
+pclint:		$(MAINSRC)
+		-rm -f pclint.out
+ifeq ($(FILES),)
+		@$(SHELL) -ec 'echo "-> running pclint on $^..."; \
+			$(PCLINT) -I$(SCIPDIR) -I$(SCIPDIR)/pclint main-gcc.lnt +os\(pclint.out\) -u -zero -max_threads=$(MAXJOBS) \
+			$(USRFLAGS) $(FLAGS) -uNDEBUG -uSCIP_WITH_READLINE -uSCIP_ROUNDING_FE -D_BSD_SOURCE $^;'
+else
+		@$(SHELL) -ec  'echo "-> running pclint on files $(FILES) ..."; \
+			$(PCLINT) -I$(SCIPDIR) -I$(SCIPDIR)/pclint main-gcc.lnt +os\(pclint.out\) -u -zero -max_threads=$(MAXJOBS) \
+			$(USRFLAGS) $(FLAGS) -uNDEBUG -uSCIP_WITH_READLINE -uSCIP_ROUNDING_FE -D_BSD_SOURCE $(FILES);'
+endif
 
 $(MAINSHORTLINK):	$(MAINFILE)
 		@rm -f $@

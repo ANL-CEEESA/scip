@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -43,6 +43,7 @@
 #include "scip/presol_redvub.h"
 #include "scip/pub_matrix.h"
 #include "scip/pub_message.h"
+#include "scip/pub_presol.h"
 #include "scip/pub_var.h"
 #include "scip/scip_cons.h"
 #include "scip/scip_general.h"
@@ -120,6 +121,9 @@ SCIP_Bool isVub(
       val2 = *valpnt;
       var2 = SCIPmatrixGetVar(matrix, idx2);
       type2 = SCIPvarGetType(var2);
+
+      if( SCIPvarIsImpliedIntegral(var1) || SCIPvarIsImpliedIntegral(var2) )
+         return isvub;
 
       /* we claim that the vub has the structure ax + cy >= b
        * with a<0, c>0, x continuous, x>=0, y binary and obj(y)>=0
@@ -201,6 +205,9 @@ SCIP_Bool isVlb(
       val2 = *valpnt;
       var2 = SCIPmatrixGetVar(matrix, idx2);
       type2 = SCIPvarGetType(var2);
+
+      if( SCIPvarIsImpliedIntegral(var1) || SCIPvarIsImpliedIntegral(var2) )
+         return isvlb;
 
       /* we claim that the vlb has the structure ax + cy >= b
        * with a>0, c<0, x continuous, x>=0, y binary and obj(y)>=0
@@ -299,7 +306,7 @@ SCIP_RETCODE detectDominatingVubs(
 #ifdef SCIP_DEBUG
                SCIPdebugMsg(scip, "Aggregate variable %s by %s\n", SCIPvarGetName(var2), SCIPvarGetName(var1));
                SCIPdebugMsg(scip, "Delete variable upper bound constraint:\n");
-               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vubs[j]), NULL));
+               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vubs[j]), NULL) );
                SCIPinfoMessage(scip, NULL, "\n");
 #endif
 
@@ -316,7 +323,7 @@ SCIP_RETCODE detectDominatingVubs(
 #ifdef SCIP_DEBUG
                SCIPdebugMsg(scip, "Aggregate variable %s by %s\n", SCIPvarGetName(var1), SCIPvarGetName(var2));
                SCIPdebugMsg(scip, "Delete variable upper bound constraint:\n");
-               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vubs[i]), NULL));
+               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vubs[i]), NULL) );
                SCIPinfoMessage(scip, NULL, "\n");
 #endif
 
@@ -406,7 +413,7 @@ SCIP_RETCODE detectDominatingVlbs(
 #ifdef SCIP_DEBUG
                SCIPdebugMsg(scip, "Aggregate variable %s by %s\n", SCIPvarGetName(var2), SCIPvarGetName(var1));
                SCIPdebugMsg(scip, "Delete variable lower bound constraint:\n");
-               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vlbs[j]), NULL));
+               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vlbs[j]), NULL) );
                SCIPinfoMessage(scip, NULL, "\n");
 #endif
 
@@ -423,7 +430,7 @@ SCIP_RETCODE detectDominatingVlbs(
 #ifdef SCIP_DEBUG
                SCIPdebugMsg(scip, "Aggregate variable %s by %s\n", SCIPvarGetName(var1), SCIPvarGetName(var2));
                SCIPdebugMsg(scip, "Delete variable lower bound constraint:\n");
-               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vlbs[i]), NULL));
+               SCIP_CALL( SCIPprintCons(scip, SCIPmatrixGetCons(matrix, vlbs[i]), NULL) );
                SCIPinfoMessage(scip, NULL, "\n");
 #endif
 
@@ -483,7 +490,7 @@ SCIP_RETCODE findVarAggrRedVbcons(
 
       var = SCIPmatrixGetVar(matrix, c);
 
-      if( SCIPvarGetType(var) != SCIP_VARTYPE_CONTINUOUS )
+      if( SCIPvarIsIntegral(var) )
          continue;
 
       /* search vubs per variable */
@@ -552,11 +559,23 @@ SCIP_RETCODE findVarAggrRedVbcons(
    return SCIP_OKAY;
 }
 
-
 /*
  * Callback methods of presolver
  */
 
+/** copy method for presolver plugins (called when SCIP copies plugins) */
+static
+SCIP_DECL_PRESOLCOPY(presolCopyRedvub)
+{  /*lint --e{715}*/
+   assert(scip != NULL);
+   assert(presol != NULL);
+   assert(strcmp(SCIPpresolGetName(presol), PRESOL_NAME) == 0);
+
+   /* call inclusion method of presolver */
+   SCIP_CALL( SCIPincludePresolRedvub(scip) );
+
+   return SCIP_OKAY;
+}
 
 /** execution method of presolver */
 static
@@ -699,6 +718,9 @@ SCIP_RETCODE SCIPincludePresolRedvub(
    /* include presolver */
    SCIP_CALL( SCIPincludePresolBasic(scip, &presol, PRESOL_NAME, PRESOL_DESC, PRESOL_PRIORITY, PRESOL_MAXROUNDS,
          PRESOL_TIMING, presolExecRedvub, NULL) );
+
+   /* set non fundamental callbacks via setter functions */
+   SCIP_CALL( SCIPsetPresolCopy(scip, presol, presolCopyRedvub) );
 
    return SCIP_OKAY;
 }

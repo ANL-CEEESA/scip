@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -454,20 +454,28 @@ SCIP_DECL_CONSEXIT(consExitBenders)
 static
 SCIP_DECL_CONSINITLP(consInitlpBenders)
 {  /*lint --e{715}*/
+   SCIP_CONSHDLRDATA* conshdlrdata;
    SCIP_BENDERS** benders;
    int nactivebenders;
    int i;
 
    assert(scip != NULL);
+   assert(conshdlr != NULL);
 
-   benders = SCIPgetBenders(scip);
-   nactivebenders = SCIPgetNActiveBenders(scip);
+   conshdlrdata = SCIPconshdlrGetData(conshdlr);
+   assert(conshdlrdata != NULL);
 
-   (*infeasible) = FALSE;
+   if( conshdlrdata->active )
+   {
+      benders = SCIPgetBenders(scip);
+      nactivebenders = SCIPgetNActiveBenders(scip);
 
-   /* checking all Benders' decomposition implementations to see if any subproblems have been declared as infeasible */
-   for( i = 0; i < nactivebenders && !(*infeasible); i++ )
-      (*infeasible) = SCIPbendersSubproblemsAreInfeasible(benders[i]);
+      (*infeasible) = FALSE;
+
+      /* checking all Benders' decomposition implementations to see if any subproblems have been declared as infeasible */
+      for( i = 0; i < nactivebenders && !(*infeasible); i++ )
+         (*infeasible) = SCIPbendersSubproblemsAreInfeasible(benders[i]);
+   }
 
    return SCIP_OKAY;
 }
@@ -556,7 +564,6 @@ SCIP_DECL_CONSCHECK(consCheckBenders)
    int solindex;
    int i;
    SCIP_Bool performcheck;
-   SCIP_Bool infeasible;
    SCIP_Bool auxviol;
 
    assert(scip != NULL);
@@ -565,7 +572,6 @@ SCIP_DECL_CONSCHECK(consCheckBenders)
 
    (*result) = SCIP_FEASIBLE;
    performcheck = TRUE;
-   infeasible = FALSE;
    auxviol = FALSE;
 
    conshdlrdata = SCIPconshdlrGetData(conshdlr);
@@ -600,11 +606,13 @@ SCIP_DECL_CONSCHECK(consCheckBenders)
              */
             if( SCIPbendersSubproblemsAreInfeasible(benders[i]) )
             {
-               infeasible = TRUE;
                (*result) = SCIP_INFEASIBLE;
             }
             else
             {
+               SCIP_Bool infeasible;
+               infeasible = FALSE;
+
                SCIP_CALL( SCIPsolveBendersSubproblems(scip, benders[i], sol, result, &infeasible, &auxviol,
                      SCIP_BENDERSENFOTYPE_CHECK, TRUE) );
             }

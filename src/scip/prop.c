@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -193,6 +193,7 @@ SCIP_RETCODE doPropCreate(
    (*prop)->ncutoffs = 0;
    (*prop)->ndomredsfound = 0;
    (*prop)->wasdelayed = FALSE;
+   (*prop)->exact = FALSE;
    (*prop)->initialized = FALSE;
 
    /* add parameters */
@@ -550,7 +551,7 @@ SCIP_RETCODE SCIPpropPresol(
 
    *result = SCIP_DIDNOTRUN;
 
-   if( prop->proppresol == NULL )
+   if( prop->proppresol == NULL || (set->exact_enable && !prop->exact) )
       return SCIP_OKAY;
 
    /* check number of presolving rounds */
@@ -662,7 +663,8 @@ SCIP_RETCODE SCIPpropExec(
    assert(depth >= 0);
    assert(result != NULL);
 
-   if( (depth == 0 && prop->freq == 0) || (prop->freq > 0 && depth % prop->freq == 0) )
+   if( ((depth == 0 && prop->freq == 0) || (prop->freq > 0 && depth % prop->freq == 0))
+         && (!set->exact_enable || prop->exact) )
    {
       if( !prop->delay || execdelayed )
       {
@@ -883,8 +885,6 @@ void SCIPpropSetInitpre(
    prop->propinitpre = propinitpre;
 }
 
-
-
 /** sets preprocessing deinitialization method of propagator */
 void SCIPpropSetExitpre(
    SCIP_PROP*            prop,               /**< propagator */
@@ -935,6 +935,16 @@ void SCIPpropSetResprop(
    assert(prop != NULL);
 
    prop->propresprop = propresprop;
+}
+
+/** marks the propagator as safe to use in exact solving mode */
+void SCIPpropMarkExact(
+   SCIP_PROP*            prop                /**< propagator */
+   )
+{
+   assert(prop != NULL);
+
+   prop->exact = TRUE;
 }
 
 /** gets name of propagator */

@@ -46,6 +46,7 @@ set(scipsources
     scip/branch_random.c
     scip/branch_relpscost.c
     scip/branch_vanillafullstrong.c
+    scip/certificate.cpp
     scip/compr_largestrepr.c
     scip/compr_weakcompr.c
     scip/concsolver_scip.c
@@ -60,6 +61,8 @@ set(scipsources
     scip/cons_countsols.c
     scip/cons_cumulative.c
     scip/cons_disjunction.c
+    scip/cons_exactlinear.c
+    scip/cons_exactsol.c
     scip/cons_fixedvar.c
     scip/cons_indicator.c
     scip/cons_integral.c
@@ -71,6 +74,8 @@ set(scipsources
     scip/cons_or.c
     scip/cons_orbisack.c
     scip/cons_orbitope.c
+    scip/cons_orbitope_full.c
+    scip/cons_orbitope_pp.c
     scip/cons_pseudoboolean.c
     scip/cons_quadratic.c
     scip/cons_setppc.c
@@ -115,6 +120,7 @@ set(scipsources
     scip/heur_crossover.c
     scip/heur_dins.c
     scip/heur_distributiondiving.c
+    scip/heur_dks.c
     scip/heur_dps.c
     scip/heur_dualval.c
     scip/heur_farkasdiving.c
@@ -167,6 +173,7 @@ set(scipsources
     scip/heur_zeroobj.c
     scip/heur_zirounding.c
     scip/hypergraph.c
+    scip/iisfinder_greedy.c
     scip/message_default.c
     scip/network.c
     scip/nlhdlr_bilinear.c
@@ -300,11 +307,14 @@ set(scipsources
     scip/heuristics.c
     scip/compr.c
     scip/history.c
+    scip/iisfinder.c
     scip/implics.c
     scip/interrupt.c
     scip/intervalarith.c
     scip/lapack_calls.c
     scip/lp.c
+    scip/lpexact.c
+    scip/lpexact_bounding.c
     scip/matrix.c
     scip/mem.c
     scip/misc.c
@@ -323,6 +333,7 @@ set(scipsources
     scip/primal.c
     scip/prob.c
     scip/prop.c
+    scip/rational.cpp
     scip/reader.c
     scip/relax.c
     scip/reopt.c
@@ -330,6 +341,7 @@ set(scipsources
     scip/scip_bandit.c
     scip/scip_benders.c
     scip/scip_branch.c
+    scip/scip_certificate.c
     scip/scip_compr.c
     scip/scip_concurrent.c
     scip/scip_conflict.c
@@ -338,15 +350,19 @@ set(scipsources
     scip/scip_cut.c
     scip/scip_cutsel.c
     scip/scip_datastructures.c
+    scip/scip_datatree.c
     scip/scip_debug.c
     scip/scip_dcmp.c
     scip/scip_dialog.c
     scip/scip_disp.c
     scip/scip_event.c
+    scip/scip_exact.c
     scip/scip_expr.c
     scip/scip_general.c
     scip/scip_heur.c
+    scip/scip_iisfinder.c
     scip/scip_lp.c
+    scip/scip_lpexact.c
     scip/scip_mem.c
     scip/scip_message.c
     scip/scip_nlp.c
@@ -372,12 +388,14 @@ set(scipsources
     scip/scip_tree.c
     scip/scip_validation.c
     scip/scip_var.c
+    scip/datatree.c
     scip/scipdefplugins.c
     scip/scipcoreplugins.c
     scip/scipgithash.c
     scip/scipshell.c
     scip/sepa.c
     scip/sepastore.c
+    scip/sepastoreexact.c
     scip/set.c
     scip/sol.c
     scip/solve.c
@@ -411,6 +429,7 @@ set(objscipsources
     objscip/objdisp.cpp
     objscip/objeventhdlr.cpp
     objscip/objheur.cpp
+    objscip/objiisfinder.cpp
     objscip/objmessagehdlr.cpp
     objscip/objnodesel.cpp
     objscip/objpresol.cpp
@@ -432,6 +451,22 @@ set(symsources
    ${sym}
    )
 
+set(lpiexactsources
+   ${lpiexact}
+   )
+
+if(SCIP_WITH_EXACTSOLVE)
+set(rectlusources
+   rectlu/rectlu_factor.c
+   rectlu/rectlu_num.c
+   )
+
+set(rectluheaders
+    rectlu/rectlu.h
+    rectlu/rectlu_num.h
+    rectlu/rectlu_factor.h)
+endif()
+
 set(blockmemshellheader
     blockmemshell/memory.h
 )
@@ -439,6 +474,11 @@ set(blockmemshellheader
 set(lpiheaders
     lpi/lpi.h
     lpi/type_lpi.h
+)
+
+set(lpiexactheaders
+    lpiexact/lpiexact.h
+    lpiexact/type_lpiexact.h
 )
 
 set(dijkstraheaders
@@ -456,6 +496,7 @@ set(objscipheaders
     objscip/objdisp.h
     objscip/objeventhdlr.h
     objscip/objheur.h
+    objscip/objiisfinder.h
     objscip/objmessagehdlr.h
     objscip/objnodesel.h
     objscip/objpresol.h
@@ -507,6 +548,7 @@ set(scipheaders
     scip/branch_random.h
     scip/branch_relpscost.h
     scip/branch_vanillafullstrong.h
+    scip/certificate.h
     scip/clock.h
     scip/compr.h
     scip/compr_largestrepr.h
@@ -530,6 +572,8 @@ set(scipheaders
     scip/cons_countsols.h
     scip/cons_cumulative.h
     scip/cons_disjunction.h
+    scip/cons_exactlinear.h
+    scip/cons_exactsol.h
     scip/cons_fixedvar.h
     scip/cons.h
     scip/cons_indicator.h
@@ -541,6 +585,8 @@ set(scipheaders
     scip/cons_nonlinear.h
     scip/cons_orbisack.h
     scip/cons_orbitope.h
+    scip/cons_orbitope_full.h
+    scip/cons_orbitope_pp.h
     scip/cons_or.h
     scip/cons_pseudoboolean.h
     scip/cons_quadratic.h
@@ -596,6 +642,7 @@ set(scipheaders
     scip/heur_crossover.h
     scip/heur_dins.h
     scip/heur_distributiondiving.h
+    scip/heur_dks.h
     scip/heur_dps.h
     scip/heur_dualval.h
     scip/heur_farkasdiving.h
@@ -651,14 +698,19 @@ set(scipheaders
     scip/heur_zirounding.h
     scip/history.h
     scip/hypergraph.h
+    scip/iisfinder.h
+    scip/iisfinder_greedy.h
     scip/implics.h
     scip/interrupt.h
     scip/intervalarith.h
     scip/lapack_calls.h
     scip/lp.h
+    scip/lpexact.h
+    scip/lpexact_bounding.h
     scip/mem.h
     scip/message_default.h
     scip/message.h
+    scip/multiprecision.hpp
     scip/misc.h
     scip/nlhdlr_bilinear.h
     scip/nlhdlr_convex.h
@@ -736,6 +788,7 @@ set(scipheaders
     scip/pub_cons.h
     scip/pub_cutpool.h
     scip/pub_cutsel.h
+    scip/pub_datatree.h
     scip/pub_dcmp.h
     scip/pub_dialog.h
     scip/pub_disp.h
@@ -744,8 +797,10 @@ set(scipheaders
     scip/pub_fileio.h
     scip/pub_heur.h
     scip/pub_history.h
+    scip/pub_iisfinder.h
     scip/pub_implics.h
     scip/pub_lp.h
+    scip/pub_lpexact.h
     scip/pub_matrix.h
     scip/pub_message.h
     scip/pub_misc.h
@@ -770,6 +825,7 @@ set(scipheaders
     scip/pub_table.h
     scip/pub_tree.h
     scip/pub_var.h
+    scip/rational.h
     scip/rbtree.h
     scip/reader_bnd.h
     scip/reader_ccg.h
@@ -809,6 +865,7 @@ set(scipheaders
     scip/scip_bandit.h
     scip/scip_benders.h
     scip/scip_branch.h
+    scip/scip_certificate.h
     scip/scip_compr.h
     scip/scip_concurrent.h
     scip/scip_conflict.h
@@ -817,15 +874,19 @@ set(scipheaders
     scip/scip_cut.h
     scip/scip_cutsel.h
     scip/scip_datastructures.h
+    scip/scip_datatree.h
     scip/scip_debug.h
     scip/scip_dcmp.h
     scip/scip_dialog.h
     scip/scip_disp.h
     scip/scip_event.h
+    scip/scip_exact.h
     scip/scip_expr.h
     scip/scip_general.h
     scip/scip_heur.h
+    scip/scip_iisfinder.h
     scip/scip_lp.h
+    scip/scip_lpexact.h
     scip/scip_mem.h
     scip/scip_message.h
     scip/scip_nlp.h
@@ -874,6 +935,7 @@ set(scipheaders
     scip/sepa_rapidlearning.h
     scip/sepa_rlt.h
     scip/sepastore.h
+    scip/sepastoreexact.h
     scip/sepa_zerohalf.h
     scip/set.h
     scip/sol.h
@@ -893,6 +955,7 @@ set(scipheaders
     scip/struct_cutpool.h
     scip/struct_cuts.h
     scip/struct_cutsel.h
+    scip/struct_datatree.h
     scip/struct_dcmp.h
     scip/struct_dialog.h
     scip/struct_disp.h
@@ -901,8 +964,10 @@ set(scipheaders
     scip/struct_heur.h
     scip/struct_history.h
     scip/struct_hypergraph.h
+    scip/struct_iisfinder.h
     scip/struct_implics.h
     scip/struct_lp.h
+    scip/struct_lpexact.h
     scip/struct_matrix.h
     scip/struct_mem.h
     scip/struct_message.h
@@ -918,6 +983,7 @@ set(scipheaders
     scip/struct_primal.h
     scip/struct_prob.h
     scip/struct_prop.h
+    scip/struct_rational.h
     scip/struct_reader.h
     scip/struct_relax.h
     scip/struct_reopt.h
@@ -932,6 +998,7 @@ set(scipheaders
     scip/struct_tree.h
     scip/struct_var.h
     scip/struct_visual.h
+    scip/datatree.h
     scip/symmetry.h
     scip/symmetry_graph.h
     scip/symmetry_orbitopal.h
@@ -946,6 +1013,7 @@ set(scipheaders
     scip/type_benders.h
     scip/type_benderscut.h
     scip/type_branch.h
+    scip/type_certificate.h
     scip/type_clock.h
     scip/type_compr.h
     scip/type_concsolver.h
@@ -956,6 +1024,7 @@ set(scipheaders
     scip/type_cutpool.h
     scip/type_cuts.h
     scip/type_cutsel.h
+    scip/type_datatree.h
     scip/type_dcmp.h
     scip/type_dialog.h
     scip/type_disp.h
@@ -965,9 +1034,11 @@ set(scipheaders
     scip/type_heur.h
     scip/type_history.h
     scip/type_hypergraph.h
+    scip/type_iisfinder.h
     scip/type_implics.h
     scip/type_interrupt.h
     scip/type_lp.h
+    scip/type_lpexact.h
     scip/type_matrix.h
     scip/type_mem.h
     scip/type_message.h
@@ -983,6 +1054,7 @@ set(scipheaders
     scip/type_primal.h
     scip/type_prob.h
     scip/type_prop.h
+    scip/type_rational.h
     scip/type_reader.h
     scip/type_relax.h
     scip/type_reopt.h
@@ -1005,7 +1077,7 @@ set(scipheaders
 )
 
 set(symheaders
-  symmetry/build_sassy_graph.h
+  symmetry/build_dejavu_graph.h
   symmetry/compute_symmetry.h
   symmetry/struct_symmetry.h
   symmetry/type_symmetry.h
@@ -1034,7 +1106,7 @@ set(xmlheaders
 
 # all source files should be compiled with a c++ compiler
 if(CXXONLY)
-    set_source_files_properties(main.c ${scipsources} ${objscipsources} ${lpisources} ${tpisources} ${symsources} PROPERTIES LANGUAGE CXX)
+    set_source_files_properties(main.c ${scipsources} ${objscipsources} ${lpisources} ${lpiexactsources} ${rectlusources} ${tpisources} ${symsources} PROPERTIES LANGUAGE CXX)
 
     # for the clang compiler this suppresses the warnings about treating 'c' input as 'c++' when CXXONLY is enabled
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -1052,8 +1124,16 @@ add_library(liblpi EXCLUDE_FROM_ALL
     scip/message.c)
 setLibProperties(liblpi "lpi")
 
-add_library(libscip ${scipsources} ${objscipsources} ${lpisources} ${tpisources} ${symsources})
+add_library(liblpiexact EXCLUDE_FROM_ALL
+    ${lpiexactsources})
+setLibProperties(liblpiexact "lpiexact")
 
+add_library(librectlu EXCLUDE_FROM_ALL
+    ${rectlusources}
+    scip/bitencode.c)
+setLibProperties(librectlu "rectlu")
+
+add_library(libscip ${scipsources} ${objscipsources} ${lpisources} ${lpiexactsources} ${rectlusources} ${tpisources} ${symsources})
 if(MSVC)
    # msvc otherwise is not smart enough and tries to link the scip.exe binary as a library
    setLibProperties(libscip "libscip")
@@ -1071,21 +1151,26 @@ target_link_libraries(libscip
     ${SYM_LIBRARIES}
     $<$<BOOL:${SCIP_WITH_ZLIB}>:ZLIB::ZLIB>
     ${Readline_LIBRARY}
-    ${GMP_LIBRARIES}
     ${THREAD_LIBRARIES}
     ${NLPI_LIBRARIES}
+    ${PAPILO_IMPORTED_TARGETS}
+)
+target_link_libraries(libscip
+    PUBLIC
+    ${GMP_LIBRARIES}
+    ${MPFR_LIBRARIES}
     ${LAPACK_LIBRARIES}
-    ${PAPILO_IMPORTED_TARGETS})
+)
 
 if(SHARED)
     set(SOPLEX_NEEDED 0)
     set(ZIMPL_NEEDED 0)
-    target_link_libraries(libscip PRIVATE ${ZIMPL_PIC_LIBRARIES} ${LPS_PIC_LIBRARIES} ${SYM_PIC_LIBRARIES})
-    add_executable(scip main.c ${scipsources} ${objscipsources} ${lpisources} ${tpisources} ${symsources})
+    target_link_libraries(libscip PRIVATE ${ZIMPL_PIC_LIBRARIES} ${LPS_PIC_LIBRARIES})
+    add_executable(scip main.c ${scipsources} ${objscipsources} ${lpisources} ${lpiexactsources} ${rectlusources} ${tpisources} ${symsources})
 else()
     set(SOPLEX_NEEDED ${SOPLEX_FOUND})
     set(ZIMPL_NEEDED ${ZIMPL_FOUND})
-    target_link_libraries(libscip PRIVATE ${ZIMPL_LIBRARIES} ${LPS_LIBRARIES} ${SYM_LIBRARIES})
+    target_link_libraries(libscip PRIVATE ${ZIMPL_LIBRARIES} ${LPS_LIBRARIES})
     add_executable(scip main.c)
     target_link_libraries(scip PUBLIC libscip)
 endif()
@@ -1100,33 +1185,33 @@ include(GenerateExportHeader)
 generate_export_header(libscip BASE_NAME scip EXPORT_FILE_NAME ${PROJECT_BINARY_DIR}/scip/scip_export.h)
 target_compile_definitions(scip PRIVATE SCIP_STATIC_DEFINE)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if (SANITIZE_ADDRESS OR SANITIZE_MEMORY OR SANITIZE_THREAD OR
-        SANITIZE_UNDEFINED)
-       find_package(Sanitizers)
-       add_sanitizers(scip)
-    endif()
-endif()
+if(SANITIZE)
+    find_package(Sanitizers)
+    add_sanitizers(libscip)
+    add_sanitizers(scip)
+    get_target_property(CONF_SANITIZE_FLAGS libscip SANITIZE_FLAGS)
+endif(SANITIZE)
 
 target_link_libraries(scip
-   PUBLIC
-   ${SYM_LIBRARIES}
-   $<$<BOOL:${SCIP_WITH_ZLIB}>:ZLIB::ZLIB>
-   ${Readline_LIBRARY}
-   ${GMP_LIBRARIES}
-   ${ZIMPL_LIBRARIES}
-   ${LPS_LIBRARIES}
-   ${THREAD_LIBRARIES}
-   ${NLPI_LIBRARIES}
-   ${LAPACK_LIBRARIES}
-   ${PAPILO_IMPORTED_TARGETS}
-   )
+    PUBLIC
+    ${SYM_LIBRARIES}
+    $<$<BOOL:${SCIP_WITH_ZLIB}>:ZLIB::ZLIB>
+    ${Readline_LIBRARY}
+    ${GMP_LIBRARIES}
+    ${MPFR_LIBRARIES}
+    ${ZIMPL_LIBRARIES}
+    ${THREAD_LIBRARIES}
+    ${NLPI_LIBRARIES}
+    ${LAPACK_LIBRARIES}
+    ${PAPILO_IMPORTED_TARGETS}
+    ${LPS_LIBRARIES}
+)
 
 add_dependencies(libscip scip_update_githash)
 add_dependencies(scip scip_update_githash)
 
 set_target_properties(libscip PROPERTIES
-    VERSION ${SCIP_VERSION_MAJOR}.${SCIP_VERSION_MINOR}.${SCIP_VERSION_PATCH}.${SCIP_VERSION_SUB}
+    VERSION ${SCIP_VERSION_MAJOR}.${SCIP_VERSION_MINOR}.${SCIP_VERSION_PATCH}
     SOVERSION ${SCIP_VERSION_MAJOR}.${SCIP_VERSION_MINOR}
     INSTALL_RPATH_USE_LINK_PATH TRUE
     CXX_VISIBILITY_PRESET hidden
@@ -1145,6 +1230,8 @@ set_target_properties(scip PROPERTIES
 
 # install the header files of scip
 install(FILES ${lpiheaders} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lpi)
+install(FILES ${lpiexactheaders} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lpiexact)
+install(FILES ${rectluheaders} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rectlu)
 install(FILES ${dijkstraheaders} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dijkstra)
 install(FILES ${objscipheaders} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/objscip)
 install(FILES ${scipheaders} ${PROJECT_BINARY_DIR}/scip/config.h ${PROJECT_BINARY_DIR}/scip/scip_export.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/scip)
@@ -1175,7 +1262,9 @@ if(ZIMPL_NEEDED)
     get_filename_component(CONF_ZIMPL_DIR ${ZIMPL_DIR} REALPATH BASE_DIR ${CMAKE_SOURCE_DIR})
 endif()
 
-# configure the config file for the build tree
+# Configure scip-config.cmake for the build-tree:
+# We add the CMake module path from the sources.
+set(EXTRA_CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src" "${PROJECT_BINARY_DIR}")
 configure_file(${PROJECT_SOURCE_DIR}/scip-config.cmake.in
   "${PROJECT_BINARY_DIR}/scip-config.cmake" @ONLY)
@@ -1187,7 +1276,9 @@ ${PROJECT_BINARY_DIR}/scip-config-version.cmake
     COMPATIBILITY SameMajorVersion
     )
 
-#configure the config file for the install
+# Configure the scip-config.cmake for the installation.
+# We add the current directory of the installed scip-config.cmake as a CMake module path.
+set(EXTRA_CMAKE_MODULE_PATH "\${CMAKE_CURRENT_LIST_DIR}")
 set(CONF_INCLUDE_DIRS "\${CMAKE_CURRENT_LIST_DIR}/../../../include")
 if(SOPLEX_NEEDED)
     set(CONF_SOPLEX_DIR "\${CMAKE_CURRENT_LIST_DIR}/../soplex")
@@ -1204,3 +1295,16 @@ install(EXPORT scip-targets DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scip)
 install(FILES "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/scip-config.cmake"
               ${PROJECT_BINARY_DIR}/scip-config-version.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scip)
+
+# Install FindGMP.cmake module.
+if(SCIP_WITH_GMP)
+   install(FILES ${PROJECT_SOURCE_DIR}/cmake/Modules/FindGMP.cmake
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scip)
+endif()
+
+# Install FindMPFR.cmake module.
+if(SCIP_WITH_MPFR)
+   install(FILES ${PROJECT_SOURCE_DIR}/cmake/Modules/FindMPFR.cmake
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/scip)
+endif()
+

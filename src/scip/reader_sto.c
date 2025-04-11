@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -82,6 +82,7 @@ typedef struct StoScenario STOSCENARIO;
 /** STO reading data */
 struct SCIP_ReaderData
 {
+   SCIP_Bool             created;            /**< flag to indicate that the reader data has been created */
    SCIP_Bool             usebenders;
    STOSCENARIO*          scenariotree;       /**< the multi stage scenario tree */
    int                   numscenarios;       /**< the total number of scenarios in the scenario tree */
@@ -1011,12 +1012,17 @@ SCIP_RETCODE createReaderdata(
    assert(scip != NULL);
    assert(readerdata != NULL);
 
-   /* creating the initial scenario */
-   SCIP_CALL( createScenarioData(scip, &readerdata->scenariotree) );
+   if( !readerdata->created )
+   {
+      readerdata->created = TRUE;
 
-   /* setting the scenario name and stage name */
-   SCIP_CALL( setScenarioName(scip, readerdata->scenariotree, "ROOT") );
-   SCIP_CALL( setScenarioStageName(scip, readerdata->scenariotree, SCIPtimGetStageName(scip, 0)) );
+      /* creating the initial scenario */
+      SCIP_CALL( createScenarioData(scip, &readerdata->scenariotree) );
+
+      /* setting the scenario name and stage name */
+      SCIP_CALL( setScenarioName(scip, readerdata->scenariotree, "ROOT") );
+      SCIP_CALL( setScenarioStageName(scip, readerdata->scenariotree, SCIPtimGetStageName(scip, 0)) );
+   }
 
    return SCIP_OKAY;
 }
@@ -1031,11 +1037,14 @@ SCIP_RETCODE freeReaderdata(
    assert(scip != NULL);
    assert(readerdata != NULL);
 
-   /* freeing the scenario tree */
-   if( readerdata->scenariotree != NULL )
-      SCIP_CALL( freeScenarioTree(scip, &readerdata->scenariotree) );
+   if( readerdata->created )
+   {
+      /* freeing the scenario tree */
+      if( readerdata->scenariotree != NULL )
+         SCIP_CALL( freeScenarioTree(scip, &readerdata->scenariotree) );
 
-   SCIPfreeBlockMemory(scip, &readerdata);
+      readerdata->created = FALSE;
+   }
 
    return SCIP_OKAY;
 }
@@ -1984,7 +1993,6 @@ SCIP_RETCODE addScenarioVarsToProb(
    {
       SCIP_VAR* var;
       SCIP_Real obj;
-      SCIP_VARTYPE vartype;
 
       SCIPdebugMessage("Original problem variable <%s> is being duplicated for scenario %d\n", SCIPvarGetName(vars[i]),
          getScenarioNum(scip, scenario));
@@ -1994,13 +2002,11 @@ SCIP_RETCODE addScenarioVarsToProb(
 
       obj = SCIPvarGetObj(vars[i])*probability;
 
-      vartype = SCIPvarGetType(vars[i]);
-
       /* creating a variable as a copy of the original variable. */
       getScenarioEntityName(name, SCIPvarGetName(vars[i]), getScenarioStageNum(scip, scenario), getScenarioNum(scip, scenario));
-      SCIP_CALL( SCIPcreateVar(scip, &var, name, SCIPvarGetLbOriginal(vars[i]), SCIPvarGetUbOriginal(vars[i]),
-            obj, vartype, SCIPvarIsInitial(vars[i]), SCIPvarIsRemovable(vars[i]), NULL, NULL, NULL,
-            NULL, NULL) );
+      SCIP_CALL( SCIPcreateVarImpl(scip, &var, name, SCIPvarGetLbOriginal(vars[i]), SCIPvarGetUbOriginal(vars[i]),
+            obj, SCIPvarGetType(vars[i]), SCIPvarGetImplType(vars[i]), SCIPvarIsInitial(vars[i]), SCIPvarIsRemovable(vars[i]),
+            NULL, NULL, NULL, NULL, NULL) );
 
       SCIPdebugMessage("Adding variable <%s>\n", name);
 
@@ -2116,11 +2122,14 @@ SCIP_RETCODE getScenarioDecompVar(
    {
       SCIP_VAR* var;
       /* creating a variable as a copy of the original variable. */
-      SCIP_CALL( SCIPcreateVar(scip, &var, varname, SCIPvarGetLbOriginal(searchvar), SCIPvarGetUbOriginal(searchvar),
-            0.0, SCIPvarGetType(searchvar), SCIPvarIsInitial(searchvar), SCIPvarIsRemovable(searchvar), NULL, NULL,
-            NULL, NULL, NULL) );
+      SCIP_CALL( SCIPcreateVarImpl(scip, &var, varname, SCIPvarGetLbOriginal(searchvar), SCIPvarGetUbOriginal(searchvar),
+            0.0, SCIPvarGetType(searchvar), SCIPvarGetImplType(searchvar), SCIPvarIsInitial(searchvar), SCIPvarIsRemovable(searchvar),
+            NULL, NULL, NULL, NULL, NULL) );
 
       SCIP_CALL( SCIPaddVar(scip, var) );
+
+      SCIPdebugMessage("Original problem variable <%s> is being duplicated for scenario %d\n",
+         SCIPvarGetName(var), getScenarioNum(scip, scenario));
 
       (*scenariovar) = var;
       (*varadded) = TRUE;
@@ -2718,6 +2727,8 @@ SCIP_DECL_READERFREE(readerFreeSto)
 
    SCIP_CALL( freeReaderdata(scip, readerdata) );
 
+   SCIPfreeBlockMemory(scip, &readerdata);
+
    return SCIP_OKAY;
 }
 
@@ -2730,6 +2741,9 @@ SCIP_DECL_READERREAD(readerReadSto)
 
    assert(reader != NULL);
    assert(strcmp(SCIPreaderGetName(reader), READER_NAME) == 0);
+   assert(result != NULL);
+
+   *result = SCIP_DIDNOTRUN;
 
    correader = SCIPfindReader(scip, "correader");
    timreader = SCIPfindReader(scip, "timreader");
@@ -2783,6 +2797,7 @@ SCIP_RETCODE SCIPincludeReaderSto(
 
    /* create reader data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &readerdata) );
+   readerdata->created = FALSE;
    readerdata->scenariotree = NULL;
    readerdata->numscenarios = 0;
 
@@ -2822,6 +2837,12 @@ SCIP_RETCODE SCIPreadSto(
    assert(reader != NULL);
    readerdata = SCIPreaderGetData(reader);
 
+   /* before the STO file can be read, the reader data needs to be freed. This is because the reader data stores problem
+    * data, which needs to be removed before the next instance is read. For most readers, there is no problem data
+    * stored in the reader data, and hence the reader data doesn't need to be freed.
+    */
+   SCIP_CALL( freeReaderdata(scip, readerdata) );
+
    retcode = readSto(scip, filename, readerdata);
 
    if( retcode == SCIP_PLUGINNOTFOUND )
@@ -2854,4 +2875,25 @@ int SCIPstoGetNScenarios(
    assert(readerdata != NULL);
 
    return readerdata->numscenarios;
+}
+
+/** frees the STO reader data */
+SCIP_RETCODE SCIPfreeReaderdataSto(
+   SCIP*                 scip                /**< the SCIP data structure */
+   )
+{
+   SCIP_READER* reader;
+   SCIP_READERDATA* readerdata;
+
+   assert(scip != NULL);
+
+   reader = SCIPfindReader(scip, READER_NAME);
+   assert(reader != NULL);
+
+   readerdata = SCIPreaderGetData(reader);
+   assert(readerdata != NULL);
+
+   SCIP_CALL( freeReaderdata(scip, readerdata) );
+
+   return SCIP_OKAY;
 }

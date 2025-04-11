@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*  Copyright (c) 2002-2024 Zuse Institute Berlin (ZIB)                      */
+/*  Copyright (c) 2002-2025 Zuse Institute Berlin (ZIB)                      */
 /*                                                                           */
 /*  Licensed under the Apache License, Version 2.0 (the "License");          */
 /*  you may not use this file except in compliance with the License.         */
@@ -69,6 +69,8 @@
 #include "scip/cons_integral.h"
 #include "scip/cons_knapsack.h"
 #include "scip/cons_linear.h"
+#include "scip/cons_exactlinear.h"
+#include "scip/cons_exactsol.h"
 #include "scip/cons_linking.h"
 #include "scip/cons_logicor.h"
 #include "scip/cons_nonlinear.h"
@@ -109,6 +111,7 @@
 #include "scip/heur_crossover.h"
 #include "scip/heur_dins.h"
 #include "scip/heur_distributiondiving.h"
+#include "scip/heur_dks.h"
 #include "scip/heur_dps.h"
 #include "scip/heur_dualval.h"
 #include "scip/heur_farkasdiving.h"
@@ -159,6 +162,7 @@
 #include "scip/heur_veclendiving.h"
 #include "scip/heur_zeroobj.h"
 #include "scip/heur_zirounding.h"
+#include "scip/iisfinder_greedy.h"
 #include "scip/nlhdlr_bilinear.h"
 #include "scip/nlhdlr_convex.h"
 #include "scip/nlhdlr_default.h"
@@ -270,7 +274,7 @@
 extern "C" {
 #endif
 
-/** includes default SCIP plugins into SCIP */
+/** includes default plugins into SCIP with respect to priorities */
 SCIP_EXPORT
 SCIP_RETCODE SCIPincludeDefaultPlugins(
    SCIP*                 scip                /**< SCIP data structure */

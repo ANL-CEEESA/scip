@@ -115,6 +115,22 @@
 /* discounted pseudo cost */
 #define BRANCHRULE_DISCOUNTFACTOR        0.2 /**< default discount factor for discounted pseudo costs.*/
 
+/* branching stats */
+#define DEFAULT_MAXDEPTHBINS     10          /**< maximum number of bins for dividing the branching depths */
+#define DEFAULT_BRANCHSTATSFILENAME "-"      /**< name of the text output file for branching stats, or "-" if no text
+                                              *   output should be created */
+
+
+/** variable branching stats */
+struct VarBranchStats
+{
+   int nbranchings;
+   int mindepth;
+   int maxdepth;
+   int* depthhist;
+};
+typedef struct VarBranchStats VARBRANCHSTATS;
+
 /** branching rule data */
 struct SCIP_BranchruleData
 {
@@ -177,6 +193,13 @@ struct SCIP_BranchruleData
 
    /* for discounted pseudo costs */
    SCIP_Real             discountfactor;     /**< discount factor for discounted pseudo costs.*/
+
+   /* for printing branching stats to a file */
+   SCIP_HASHMAP*         varstatsmap;
+   int                   depthbins[DEFAULT_MAXDEPTHBINS];
+   int                   ndepthbins;
+   SCIP_Bool             printtoconsole;
+   char*                 branchstatsfilename;
 };
 
 /*
@@ -1931,6 +1954,10 @@ SCIP_RETCODE execRelpscost(
       SCIP_NODE* upchild;
       SCIP_VAR* var;
       SCIP_Real val;
+      VARBRANCHSTATS* stats;
+      int depth;
+      int bin;
+      int i;
 
       assert(*result == SCIP_DIDNOTRUN);
       assert(0 <= bestcand && bestcand < nbranchcands);
@@ -1974,6 +2001,31 @@ SCIP_RETCODE execRelpscost(
       SCIPdebugMsg(scip, " -> up child's lowerbound  : %g\n", SCIPnodeGetLowerbound(upchild));
 
       assert(SCIPgetLPSolstat(scip) != SCIP_LPSOLSTAT_INFEASIBLE && SCIPgetLPSolstat(scip) != SCIP_LPSOLSTAT_OBJLIMIT);
+
+      /* init stats */
+      stats = (VARBRANCHSTATS*) SCIPhashmapGetImage(branchruledata->varstatsmap, (void*)var);
+      if( stats == NULL )
+      {
+         SCIP_CALL( SCIPallocBlockMemory(scip, &stats) );
+         SCIP_CALL( SCIPallocBlockMemoryArray(scip, &stats->depthhist, branchruledata->ndepthbins + 1) );
+         stats->nbranchings = 0;
+         stats->mindepth = INT_MAX;
+         stats->maxdepth = -1;
+         for( i = 0; i <= branchruledata->ndepthbins; i++ )
+            stats->depthhist[i] = 0;
+
+         SCIP_CALL( SCIPhashmapInsert(branchruledata->varstatsmap, (void*)var, (void*)stats) );
+      }
+      assert(stats != NULL);
+      /* update stats */
+      depth = SCIPgetDepth(scip);
+      stats->nbranchings++;
+      stats->mindepth = MIN(stats->mindepth, depth);
+      stats->maxdepth = MAX(stats->maxdepth, depth);
+      bin = 0;
+      while( bin < branchruledata->ndepthbins && depth > branchruledata->depthbins[bin] )
+         bin++;
+      stats->depthhist[bin]++;
 
       *result = SCIP_BRANCHED;
    }
@@ -2041,6 +2093,9 @@ SCIP_DECL_BRANCHINITSOL(branchInitsolRelpscost)
    SCIP_CALL( SCIPcreateRandom(scip, &branchruledata->randnumgen,
          (unsigned int)branchruledata->startrandseed, TRUE) );
 
+   /* hashmap for storing variable branching stats */
+   SCIP_CALL( SCIPhashmapCreate(&(branchruledata->varstatsmap), SCIPblkmem(scip), SCIPgetNVars(scip)) );
+
    return SCIP_OKAY;
 }
 
@@ -2050,10 +2105,75 @@ static
 SCIP_DECL_BRANCHEXITSOL(branchExitsolRelpscost)
 {  /*lint --e{715}*/
    SCIP_BRANCHRULEDATA* branchruledata;
+   SCIP_VAR** vars;
+   SCIP_VAR* var;
+   VARBRANCHSTATS* stats;
+   SCIP_HASHMAPENTRY* entry;
+   FILE* file;
+   int nvars;
+   int i;
+   int j;
 
    /* free memory in branching rule data */
    branchruledata = SCIPbranchruleGetData(branchrule);
    SCIPfreeBlockMemoryArrayNull(scip, &branchruledata->nlcount, branchruledata->nlcountsize);
+
+   /* write the branch stats file as needed */
+   file = fopen(branchruledata->branchstatsfilename, "w");
+   if( file != NULL )
+   {
+      nvars = SCIPgetNVars(scip);
+      vars = SCIPgetVars(scip);
+
+      fprintf(file, "varname nbranched mindepth maxdepth");
+      for( i = 0; i <= branchruledata->ndepthbins; i++ )
+         fprintf(file, " depth[%d,%d]", (i == 0 ? 0 : branchruledata->depthbins[i-1] + 1), (i < branchruledata->ndepthbins ? branchruledata->depthbins[i] : INT_MAX));
+      fprintf(file, "\n");
+
+      for( i = 0; i < nvars; i++ )
+      {
+         var = vars[i];
+         stats = (VARBRANCHSTATS*) SCIPhashmapGetImage(branchruledata->varstatsmap, (void*)var);
+
+         if( stats == NULL )
+            continue;
+
+         if( stats->nbranchings > 0 )
+         {
+            fprintf(file, "%s %d %d %d", SCIPvarGetName(var), stats->nbranchings, stats->mindepth, stats->maxdepth);
+            for( j = 0; j <= branchruledata->ndepthbins; j++ )
+               fprintf(file, " %d", stats->depthhist[j]);
+            fprintf(file, "\n");
+
+            if( branchruledata->printtoconsole )
+            {
+               SCIPinfoMessage(scip, NULL, "%s branched %d times [depths %d-%d]:", SCIPvarGetName(var), stats->nbranchings, stats->mindepth, stats->maxdepth);
+               for( j = 0; j <= branchruledata->ndepthbins; j++ )
+                  SCIPinfoMessage(scip, NULL, " depth%d=%d", j, stats->depthhist[j]);
+               SCIPinfoMessage(scip, NULL, "\n");
+            }
+         }
+      }
+   }
+   fclose(file);
+
+   /* free branch stats hashmap and arrays if any */
+   for( i = 0; i < SCIPhashmapGetNEntries(branchruledata->varstatsmap); i++ )
+   {
+      entry = SCIPhashmapGetEntry(branchruledata->varstatsmap, i);
+
+      if( entry == NULL )
+         continue;
+
+      stats = (VARBRANCHSTATS*) SCIPhashmapEntryGetImage(entry);
+
+      /* if stats has been added to the hashmap, it can't be empty */
+      assert(stats->depthhist != NULL);
+
+      SCIPfreeBlockMemoryArray(scip, &stats->depthhist, (branchruledata->ndepthbins + 1));
+      SCIPfreeBlockMemory(scip, &stats);
+   }
+   SCIPhashmapFree(&branchruledata->varstatsmap);
 
    /* free random number generator */
    SCIPfreeRandom(scip, &branchruledata->randnumgen);
@@ -2163,6 +2283,7 @@ SCIP_RETCODE SCIPincludeBranchruleRelpscost(
 {
    SCIP_BRANCHRULEDATA* branchruledata;
    SCIP_BRANCHRULE* branchrule;
+   int i;
 
    /* create relpscost branching rule data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &branchruledata) );
@@ -2176,6 +2297,8 @@ SCIP_RETCODE SCIPincludeBranchruleRelpscost(
    branchruledata->permvars = NULL;
    branchruledata->npermvars = 0;
    branchruledata->permvarmap = NULL;
+   branchruledata->varstatsmap = NULL;
+   branchruledata->branchstatsfilename = NULL;
 
    /* include branching rule */
    SCIP_CALL( SCIPincludeBranchruleBasic(scip, &branchrule, BRANCHRULE_NAME, BRANCHRULE_DESC, BRANCHRULE_PRIORITY,
@@ -2259,6 +2382,19 @@ SCIP_RETCODE SCIPincludeBranchruleRelpscost(
          "branching/relpscost/maxproprounds",
          "maximum number of propagation rounds to be performed during strong branching before solving the LP (-1: no limit, -2: parameter settings)",
          &branchruledata->maxproprounds, TRUE, SCIPisExact(scip) ? 0 : DEFAULT_MAXPROPROUNDS, -2, INT_MAX, NULL, NULL) );
+   SCIP_CALL( SCIPaddIntParam(scip,
+         "branching/relpscost/ndepthbins",
+         "number of depth bins while tracking the variable branching statistics (max 10)",
+         &branchruledata->ndepthbins, TRUE, 5, 1, DEFAULT_MAXDEPTHBINS, NULL, NULL) );
+   for( i = 0; i < DEFAULT_MAXDEPTHBINS; i++ )
+   {
+      char paramname[SCIP_MAXSTRLEN];
+      (void) SCIPsnprintf(paramname, SCIP_MAXSTRLEN, "branching/relpscost/depthbin%d", i+1);
+      SCIP_CALL( SCIPaddIntParam(scip,
+               paramname,
+               "depth upper bound for the current bin",
+               &branchruledata->depthbins[i], TRUE, (i + 1) * 10, 0, INT_MAX, NULL, NULL) );
+   }
    SCIP_CALL( SCIPaddBoolParam(scip,
          "branching/relpscost/probingbounds",
          "should valid bounds be identified in a probing-like fashion during strong branching (only with propagation)?",
@@ -2338,6 +2474,16 @@ SCIP_RETCODE SCIPincludeBranchruleRelpscost(
    SCIP_CALL( SCIPaddRealParam(scip, "branching/" BRANCHRULE_NAME "/discountfactor",
          "discount factor for ancestral pseudo costs (0.0: disable discounted pseudo costs)",
          &branchruledata->discountfactor, FALSE, BRANCHRULE_DISCOUNTFACTOR, 0.0, 1.0, NULL, NULL) );
+
+   SCIP_CALL( SCIPaddBoolParam(scip,
+         "branching/relpscost/printtoconsole",
+         "should variable branching stats be printed to the console at the end?",
+         &branchruledata->printtoconsole, TRUE, FALSE, NULL, NULL) );
+   SCIP_CALL( SCIPaddStringParam(scip,
+         "branching/relpscost/branchstatsfilename",
+         "name of the text output file for branching stats, or - if no text output should be created",
+         &branchruledata->branchstatsfilename, TRUE, DEFAULT_BRANCHSTATSFILENAME,
+         NULL, NULL) );
 
    /* relpcost is safe to use in exact solving mode */
    SCIPbranchruleMarkExact(branchrule);
